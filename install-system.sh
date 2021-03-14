@@ -9,6 +9,7 @@ case $(arch) in
 esac
 
 apt-get install curl
+apt-get install docker-compose
 
 echo "Installing docker..."
 if ! command -v docker
@@ -29,9 +30,8 @@ then
 
 fi
 
-
-
 echo "Installing protainer..."
 # install portainer image
 docker pull portainer/portainer$RELEASE
 docker run --restart always -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer$RELEASE
+
