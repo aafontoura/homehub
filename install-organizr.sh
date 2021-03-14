@@ -1,0 +1,1 @@
+docker-compose -f ~/homehub/docker/organizr/docker-compose.yml up -d
