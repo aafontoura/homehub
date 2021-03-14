@@ -1,0 +1,19 @@
+--- 
+version: "2.1"
+services: 
+  duplicati: 
+    container_name: duplicati
+    environment: 
+      - PUID=1000
+      - PGID=100
+      - TZ=Europe/Amsterdam
+      # - CLI_ARGS=
+    image: ghcr.io/linuxserver/duplicati
+    ports: 
+      - "8200:8200"
+    restart: unless-stopped
+    volumes: 
+      - "/srv/dev-disk-by-label-media/configs:/config"
+      - "/srv/dev-disk-by-label-media/backups:/backups"
+      - "/srv/dev-disk-by-label-media/configs:/general-configs"
+      - "/srv/dev-disk-by-label-media/home/antonio/config:/homehub-configs"
