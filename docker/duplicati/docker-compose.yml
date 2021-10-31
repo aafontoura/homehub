@@ -17,3 +17,5 @@ services:
       - "/srv/dev-disk-by-label-media/backups:/backups"
       - "/srv/dev-disk-by-label-media/configs:/general-configs"
       - "/srv/dev-disk-by-label-media/home/antonio/config:/homehub-configs"
+      - "/etc/openmediavault:/omv-config"
+      - /srv/dev-disk-by-label-media/restored:/restore
