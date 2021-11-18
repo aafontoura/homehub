@@ -1,0 +1,9 @@
+[Unit]
+Description=Ventilation Control
+
+[Service]
+ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/ventilation_control.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Storage Light Control
+
+[Service]
+ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/storage_light.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

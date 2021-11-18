@@ -1,0 +1,9 @@
+[Unit]
+Description=Ventilation logger
+
+[Service]
+ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/log-mqtt-data.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
