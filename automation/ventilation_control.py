@@ -1,6 +1,8 @@
 import time,json, logging
 import paho.mqtt.client as paho
 
+from homehub_mqtt import AutomationPubSub
+
 logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -9,51 +11,67 @@ logging.basicConfig(
         ]
 )
 
-broker="192.168.1.10"
-#define callback
-def on_message(client, userdata, message):
-    received = str(message.payload.decode("utf-8"))
+class VentilationAutomation(AutomationPubSub):
+    TIMEOUT = 180
+    ROOT_TOPIC = "zigbee2mqtt"
+    STORAGE_WINDOW_SENSOR = "Bathroom Temperature Sensor"
+    TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
+
+    def __init__(self, broker_ip:str, name:str):
+        super().__init__(broker_ip,name)
+        self.new_topics(self.TOPICS)
+
+        
+
+    def on_message(self,client, userdata, message):
+        """ Change the switch according to the door sensor
+        Expects the following message format:
+        {
+            "battery":80,
+            "humidity":52.46,
+            "linkquality":255,
+            "pressure":997,
+            "temperature":20.73,
+            "voltage":2965}        
+        """
+        received = str(message.payload.decode("utf-8"))
     
-    try:
-        bathroom_sensor = json.loads(message.payload.decode("utf-8"))
-        logging.debug("New Message")
-        logging.debug(received)
-        logging.debug(message.topic)
+        try:
+            bathroom_sensor = json.loads(message.payload.decode("utf-8"))
+            logging.debug("New Message")
+            logging.debug(received)
+            logging.debug(message.topic)
 
-        if bathroom_sensor['humidity'] > 85:
-            client.publish("itho/cmd",'220')
-        elif bathroom_sensor['humidity'] > 80:
-            client.publish("itho/cmd",'180')
-        elif bathroom_sensor['humidity'] > 75:
-            client.publish("itho/cmd",'127')
-        else:
-            client.publish("itho/cmd",'20')
+            if bathroom_sensor['humidity'] > 85:
+                self.set_ventilation(95)
+            elif bathroom_sensor['humidity'] > 80:
+                self.set_ventilation(70)
+            elif bathroom_sensor['humidity'] > 75:
+                self.set_ventilation(50)
+            else:
+                self.set_ventilation(8)
+            
+            
+            
+        except Exception as e:
+            logging.error(e)
+            return
+
+    def set_ventilation(self, power_percentage : int):
+        if power_percentage <= 100 and power_percentage > 0:
+            self.client.publish("itho/cmd",str(int(power_percentage*2.55)))
         
-        
-        
-    except Exception as e:
-        return
 
 
-client= paho.Client("client-001") #create client object client1.on_publish = on_publish #assign function to callback client1.connect(broker,port) #establish connection client1.publish("house/bulb1","on")
-######Bind function to callback
-client.on_message=on_message
-#####
-logging.info(f"connecting to broker {broker}")
-client.connect(broker)#connect
-client.loop_start() #start loop to process received messages
 
-# client.publish("itho/cmd",'20')
-# time.sleep(4)
-# exit()
-logging.info("subscribing ")
-client.subscribe("zigbee2mqtt/Bathroom Temperature Sensor")#subscribe
-# client.subscribe("zigbee2mqtt/#")#subscribe
+broker = "192.168.1.10"
+name = "automation.ventilation"
+
+ventilation_automation = VentilationAutomation(broker_ip = broker, name = name)
+ventilation_automation.connect()
+
+
 while True:
     time.sleep(2)
 
-print("publishing ")
-client.publish("house/bulb1","on")#publish
-time.sleep(4)
-client.disconnect() #disconnect
-client.loop_stop() #stop loop
+

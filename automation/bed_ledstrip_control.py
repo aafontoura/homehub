@@ -14,10 +14,10 @@ logging.basicConfig(
 
 
 
-class StorageLightAutomation(AutomationPubSub):
+class BedLEDStripAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WINDOW_SENSOR = "0x00158d00054d63cc"
+    STORAGE_WINDOW_SENSOR = "Double Switch Bed/action"
     TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):
@@ -39,38 +39,35 @@ class StorageLightAutomation(AutomationPubSub):
 
         
         """
-        received = str(message.payload.decode("utf-8"))
+        action = str(message.payload.decode("utf-8"))
     
         try:
-            storage_sensor = json.loads(message.payload.decode("utf-8"))
+            
             logging.debug("New Message")
-            logging.debug(received)
+            logging.debug(action)
             logging.debug(message.topic)
 
-            if storage_sensor["contact"]:
-                self.set_light(status = False)
+            if "single_right" == action:
+                self.toggle_bed_LED()
             else: 
-                self.set_light(status = True)
-                self.timer = threading.Timer(self.TIMEOUT, self.set_light)
-                self.timer.start()
+                self.toggle_bed_LED()
+            
         except Exception as e:
             return
 
-    def set_light(self,status = False):
-        if status:
-            command = '{"state_right":"ON"}'
-        else:
-            command = '{"state_right":"OFF"}'
+    def toggle_bed_LED(self):
+        
+        command = 'TOGGLE'
         logging.debug(f'sending: {command}')
-        self.client.publish("zigbee2mqtt/storage_switch/set",command)
+        self.client.publish("homehub/cmnd/sonoff-bedroom/POWER",command)
 
 
 
 broker = "192.168.1.10"
-name = "automation.storage_switch"
+name = "automation.bed_ledstrip"
 
-storage_automation = StorageLightAutomation(broker_ip = broker, name = name)
-storage_automation.connect()
+bed_ledstrip = BedLEDStripAutomation(broker_ip = broker, name = name)
+bed_ledstrip.connect()
 
 
 while True:
