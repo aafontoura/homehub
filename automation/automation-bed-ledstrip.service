@@ -1,0 +1,9 @@
+[Unit]
+Description=Bed LEDStrip Control
+
+[Service]
+ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/bed_ledstrip_control.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
