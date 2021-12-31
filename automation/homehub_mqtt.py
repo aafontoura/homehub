@@ -1,4 +1,4 @@
-import time,json, logging, threading
+import time,json, logging, threading, socket
 import paho.mqtt.client as paho
 
 class AutomationPubSub:
@@ -42,7 +42,7 @@ class AutomationPubSub:
             logging.debug("Trying to reconnect")
             self.client.reconnect()
             # del(self._timer_reconnect)
-        except ConnectionRefusedError as e:
+        except (ConnectionRefusedError, socket.timeout, OSError) as e:
             logging.error(f'Reconnection failed: {e}') 
             self._timer_reconnect = threading.Timer(self.RECONNECTION_TIMER, self.reconnect)
             self._timer_reconnect.start()
