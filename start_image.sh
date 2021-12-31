@@ -1,0 +1,1 @@
+docker-compose -f ~/homehub/docker/$1/docker-compose.yml up -d
