@@ -1,0 +1,57 @@
+version: '3.5'
+services:
+ zabbix-agent:
+  image: zabbix/zabbix-agent:alpine-5.4-latest
+  # profiles:
+  #  - full
+  #  - all
+  ports:
+   - "10050:10050"
+  volumes:
+   - /etc/localtime:/etc/localtime:ro
+   - /etc/timezone:/etc/timezone:ro
+   - /srv/dev-disk-by-label-media/home/antonio/config/zabbix/etc/zabbix/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d:ro
+   - /srv/dev-disk-by-label-media/home/antonio/config/zabbix/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+   - /srv/dev-disk-by-label-media/home/antonio/config/zabbix/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+   - /srv/dev-disk-by-label-media/home/antonio/config/zabbix/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+  deploy:
+   resources:
+    limits:
+      cpus: '0.2'
+      memory: 128M
+    reservations:
+      # cpus: '0.1'
+      memory: 64M
+   mode: global
+  env_file:
+   - /srv/dev-disk-by-label-media/home/antonio/config/zabbix/env_vars/.env_agent
+  privileged: true
+  pid: "host"
+  networks:
+   zbx_net_backend:
+    aliases:
+     - zabbix-agent
+     - zabbix-agent-passive
+     - zabbix-agent-alpine
+  stop_grace_period: 5s
+
+
+
+networks:
+  # zbx_net_frontend:
+  #   driver: bridge
+  #   driver_opts:
+  #     com.docker.network.enable_ipv6: "false"
+  #   ipam:
+  #     driver: default
+  #     config:
+  #     - subnet: 172.16.238.0/24
+  zbx_net_backend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    internal: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.239.0/24

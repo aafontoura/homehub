@@ -14,7 +14,7 @@ logging.basicConfig(
 class VentilationAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WINDOW_SENSOR = "Bathroom Temperature Sensor"
+    STORAGE_WINDOW_SENSOR = "Living Room Sensor"
     TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):

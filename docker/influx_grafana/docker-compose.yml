@@ -13,30 +13,32 @@ services:
     environment:
       - INFLUXDB_DATA_ENGINE=tsm1
       - INFLUXDB_REPORTING_DISABLED=false
+    networks:
+      - homehub-net
     # env_file:
     #   - 'env.influxdb'
-  # Use the influx cli to set up an influxdb instance. 
-  influxdb_cli:
-    links:
-      - influxdb
-    image: influxdb:latest
-    volumes:
-      # Mount for influxdb data directory and configuration
-      - /srv/dev-disk-by-label-media/configs/influx/db:/var/lib/influxdb2:rw
-      # - ./ssl/influxdb-selfsigned.crt:/etc/ssl/influxdb-selfsigned.crt:rw
-      # - ./ssl/influxdb-selfsigned.key:/etc/ssl/influxdb-selfsigned.key:rw
-    environment: 
-       # Use these same configurations parameters in your telegraf configuration, mytelegraf.conf.
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=antau
-      - DOCKER_INFLUXDB_INIT_PASSWORD=psw
-      - DOCKER_INFLUXDB_INIT_ORG=homehub
-      - DOCKER_INFLUXDB_INIT_BUCKET=homehub_bucket
-      
-    # entrypoint: ["./entrypoint.sh"]
-    restart: on-failure:10
-    depends_on:
-      - influxdb
+    # Use the influx cli to set up an influxdb instance. 
+    # influxdb_cli:
+    #   links:
+    #     - influxdb
+    #   image: influxdb:latest
+    #   volumes:
+    #     # Mount for influxdb data directory and configuration
+    #     - /srv/dev-disk-by-label-media/configs/influx/db:/var/lib/influxdb2:rw
+    #     # - ./ssl/influxdb-selfsigned.crt:/etc/ssl/influxdb-selfsigned.crt:rw
+    #     # - ./ssl/influxdb-selfsigned.key:/etc/ssl/influxdb-selfsigned.key:rw
+    #   environment: 
+    #      # Use these same configurations parameters in your telegraf configuration, mytelegraf.conf.
+    #     - DOCKER_INFLUXDB_INIT_MODE=setup
+    #     - DOCKER_INFLUXDB_INIT_USERNAME=antau
+    #     - DOCKER_INFLUXDB_INIT_PASSWORD=influxpassword
+    #     - DOCKER_INFLUXDB_INIT_ORG=homehub
+    #     - DOCKER_INFLUXDB_INIT_BUCKET=homehub_bucket
+
+    #   # entrypoint: ["./entrypoint.sh"]
+    #   restart: on-failure:10
+    #   depends_on:
+    #     - influxdb
 
   grafana:
     image: grafana/grafana:latest
@@ -48,11 +50,19 @@ services:
     # env_file:
     #   - 'env.grafana'
     user: "0"
+    networks:
+      - homehub-net
     links:
       - influxdb
     volumes:
       # Data persistency
       - /srv/dev-disk-by-label-media/configs/grafana/data:/var/lib/grafana
-    
+      - /srv/dev-disk-by-label-media/home/antonio/config/grafana/provisioning:/etc/grafana/provisioning/
+
 volumes:
   influxdb2:
+
+
+networks:
+  homehub-net:
+    external: true
