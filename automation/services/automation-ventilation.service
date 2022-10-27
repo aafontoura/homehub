@@ -2,8 +2,9 @@
 Description=Ventilation Control
 
 [Service]
-ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/ventilation_control.py
+ExecStart=python3 /home/antau/homehub/automation/src/ventilation_control.py
 Restart=always
+User=antau
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Bathroom Light Control
+
+[Service]
+ExecStart=python3 /home/antau/homehub/automation/src/bathroom_light.py
+Restart=always
+User=antau
+
+[Install]
+WantedBy=multi-user.target

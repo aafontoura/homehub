@@ -2,8 +2,9 @@
 Description=Storage Light Control
 
 [Service]
-ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/storage_light.py
+ExecStart=python3 /home/antau/homehub/automation/src/storage_light.py
 Restart=always
+User=antau
 
 [Install]
 WantedBy=multi-user.target

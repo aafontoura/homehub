@@ -1,0 +1,10 @@
+[Unit]
+Description=Kitchen Lights Control
+
+[Service]
+ExecStart=python3 /home/antau/homehub/automation/src/kitchen_light.py
+Restart=always
+User=antau
+
+[Install]
+WantedBy=multi-user.target

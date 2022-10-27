@@ -2,8 +2,9 @@
 Description=Bed LEDStrip Control
 
 [Service]
-ExecStart=python3 /srv/dev-disk-by-label-media/home/antonio/homehub/automation/bed_ledstrip_control.py
+ExecStart=python3 /home/antau/homehub/automation/src/bed_ledstrip_control.py
 Restart=always
+User=antau
 
 [Install]
 WantedBy=multi-user.target
