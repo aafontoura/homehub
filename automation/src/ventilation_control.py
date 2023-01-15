@@ -14,16 +14,16 @@ logging.basicConfig(
 class VentilationAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WINDOW_SENSOR = "Living Room Sensor"
-    TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
+    BATHROOM_TEMPERATURE_SENSOR = "Bathroom Sensor"
+    TOPICS = [f'{ROOT_TOPIC}/{BATHROOM_TEMPERATURE_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):
         super().__init__(broker_ip,name)
-        self.new_topics(self.TOPICS)
+        self._subscribe_to_topics(self.TOPICS)
 
         
 
-    def on_message(self,client, userdata, message):
+    def handle_message(self, topic, payload):
         """ Change the switch according to the door sensor
         Expects the following message format:
         {
@@ -34,28 +34,25 @@ class VentilationAutomation(AutomationPubSub):
             "temperature":20.73,
             "voltage":2965}        
         """
-        received = str(message.payload.decode("utf-8"))
-    
-        try:
-            bathroom_sensor = json.loads(message.payload.decode("utf-8"))
-            logging.debug("New Message")
-            logging.debug(received)
-            logging.debug(message.topic)
-
-            if bathroom_sensor['humidity'] > 85:
-                self.set_ventilation(95)
-            elif bathroom_sensor['humidity'] > 80:
-                self.set_ventilation(70)
-            elif bathroom_sensor['humidity'] > 75:
-                self.set_ventilation(50)
-            else:
-                self.set_ventilation(8)
-            
-            
-            
-        except Exception as e:
-            logging.error(e)
-            return
+        if topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_TEMPERATURE_SENSOR}':           
+        
+            try:
+                if bathroom_sensor['humidity'] > 85:
+                    self.set_ventilation(95)
+                elif bathroom_sensor['humidity'] > 80:
+                    self.set_ventilation(70)
+                elif bathroom_sensor['humidity'] > 75:
+                    self.set_ventilation(50)
+                else:
+                    self.set_ventilation(8)
+                
+                
+            except KeyError as e:
+                logging.error(f'Error:{e}') 
+                return  
+        else:
+            logging.debug(f'Skipping topic: {topic}') 
+        
 
     def set_ventilation(self, power_percentage : int):
         if power_percentage <= 100 and power_percentage > 0:

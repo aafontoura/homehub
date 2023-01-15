@@ -32,79 +32,33 @@ class KitchenLightAutomation(AutomationPubSub):
 
     def __init__(self, broker_ip:str, name:str):
         super().__init__(broker_ip,name)
-        self._spotlight_status = State.UNKNOWN
-        self._islandlight_status = State.UNKNOWN
+        self.__spotlight_status = State.UNKNOWN
+        self.__islandlight_status = State.UNKNOWN
         
-        self.new_topics(self.TOPICS)
-        
-        
-        
+        self._subscribe_to_topics(self.TOPICS)        
+    
 
-    def get_lights_status(self):
-        command = '{"state": ""}'
-        logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/get')
-        self.client.publish(f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/get',command)
-
-        command = '{"state_left": ""}'
-        logging.debug(f'sending: {command}')
-        self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/get',command)
-        
-    @property
-    def spotlight_status(self):
-        return self._spotlight_status==State.ON
-
-    @spotlight_status.setter
-    def spotlight_status(self,status):
-        logging.debug(f'Setter spot light:{status}')
-        if status.lower() == "on":
-            self._spotlight_status = State.ON
-        elif status.lower() == "off":
-            self._spotlight_status = State.OFF
-
-    @property
-    def islandlight_status(self):
-        return self._islandlight_status
-
-    @islandlight_status.setter
-    def islandlight_status(self,status):
-        logging.debug(f'Setter insland light:{status}')
-        if status.lower() == "on":
-            self._islandlight_status = True
-        elif status.lower() == "off":
-            self._islandlight_status = False
-
-    def on_message(self, client, userdata, message):
+    def handle_message(self, topic, payload):
         """ 
         Expects the following message format:
         {
-            "battery":97,
-            "contact":bool,
-            "linkquality":255,
-            "temperature":25,
-            "voltage":2995
+            
         }
 
         
         """
-        payload = json.loads(str(message.payload.decode("utf-8")))
-    
-        # try:
-            
-        logging.debug(f'New Message: spot:{self.spotlight_status} island:{self.islandlight_status}')
-        logging.debug(f'Payload:\n{payload}')
-        logging.debug(f'Message topic: {message.topic}')
-        logging.debug(self.LIVING_ROOM_LIGHT_SWITCH)
+                
+        logging.debug(f'Current state-> spot:{self.spotlight_status} island:{self.islandlight_status}')
+
         
-        if message.topic == f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}':
-            
+        if topic == f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}':            
             self.islandlight_status = payload["state"]
 
-        if message.topic == f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}':
-            
+        if topic == f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}':            
             self.spotlight_status = payload["state_left"]
 
         try:
-            if message.topic == f'{self.ROOT_TOPIC}/{self.LIVING_ROOM_LIGHT_SWITCH}' and \
+            if topic == f'{self.ROOT_TOPIC}/{self.LIVING_ROOM_LIGHT_SWITCH}' and \
                 payload["action"] == "single_right":
                 
                 if self.spotlight_status:
@@ -118,14 +72,20 @@ class KitchenLightAutomation(AutomationPubSub):
             logging.error(f'Error: {e}. \n\nPayload: {payload}\n\n')
 
 
+    def get_lights_status(self):
+        command = '{"state": ""}'
+        logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/get')
+        self.client.publish(f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/get',command)
+
+        command = '{"state_left": ""}'
+        logging.debug(f'sending: {command}')
+        self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/get',command)
 
     def set_kitchen_lights(self, status):
         if status.lower() == "on":
             command = '{"state_left":"ON"}'
             logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set')
             self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set',command)
-
-
         else:
             command = '{"state_left":"OFF"}'
             logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set')
@@ -138,17 +98,31 @@ class KitchenLightAutomation(AutomationPubSub):
         logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/set')
         self.client.publish(f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/set',command)
  
+    @property
+    def spotlight_status(self):
+        return self.__spotlight_status==State.ON
 
+    @spotlight_status.setter
+    def spotlight_status(self,status):
+        logging.debug(f'Setter spot light:{status}')
+        if status.lower() == "on":
+            self.__spotlight_status = State.ON
+        elif status.lower() == "off":
+            self.__spotlight_status = State.OFF
+
+    @property
+    def islandlight_status(self):
+        return self.__islandlight_status
+
+    @islandlight_status.setter
+    def islandlight_status(self,status):
+        logging.debug(f'Setter insland light:{status}')
+        if status.lower() == "on":
+            self.__islandlight_status = True
+        elif status.lower() == "off":
+            self.__islandlight_status = False
 
         
-
-    def toggle_bed_LED(self):
-        
-        command = 'TOGGLE'
-        logging.debug(f'sending: {command}')
-        self.client.publish("homehub/cmnd/sonoff-bedroom/POWER",command)
-
-
 
 broker = "192.168.1.10"
 name = "automation.kitchen_lights"

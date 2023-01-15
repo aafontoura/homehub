@@ -17,43 +17,34 @@ logging.basicConfig(
 class BedLEDStripAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WINDOW_SENSOR = "Double Switch Bed/action"
+    STORAGE_WINDOW_SENSOR = "Double Switch Bed"
     TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):
         super().__init__(broker_ip,name)
-        self.new_topics(self.TOPICS)
+        self._subscribe_to_topics(self.TOPICS)
 
         
 
-    def on_message(self,client, userdata, message):
+    def handle_message(self, topic, payload):
         """ Change the switch according to the door sensor
         Expects the following message format:
         {
             "battery":97,
-            "contact":bool,
-            "linkquality":255,
-            "temperature":25,
-            "voltage":2995
+            
         }
 
         
         """
-        action = str(message.payload.decode("utf-8"))
-    
-        try:
-            
-            logging.debug("New Message")
-            logging.debug(action)
-            logging.debug(message.topic)
-
-            if "single_right" == action:
-                self.toggle_bed_LED()
-            else: 
-                self.toggle_bed_LED()
-            
-        except Exception as e:
-            return
+        if topic == f'{self.ROOT_TOPIC}/{self.STORAGE_WINDOW_SENSOR}':
+            try:            
+                if "single_right" == payload['action']:
+                    self.toggle_bed_LED()
+                
+            except KeyError as e:
+                logging.error(f'Error:{e}')
+        else:
+            logging.debug(f'Skipping topic: {topic}')
 
     def toggle_bed_LED(self):
         

@@ -16,7 +16,7 @@ logging.basicConfig(
 
 class BathroomAutomation(AutomationPubSub):
     ROOT_TOPIC = "zigbee2mqtt"
-    BATHROOM_MOTION_SENSOR = "Bathroom Motion Sensor Ikea"
+    BATHROOM_MOTION_SENSOR = "Bathroom Motion Sensor"
     BATHROOM_DIMMER = "Bathroom Dimmer"
     COMMAND_TIMEOUT = 30
     TOPICS = [f'{ROOT_TOPIC}/{BATHROOM_MOTION_SENSOR}',
@@ -24,7 +24,7 @@ class BathroomAutomation(AutomationPubSub):
 
     def __init__(self, broker_ip:str, name:str):
         super().__init__(broker_ip,name)
-        self.new_topics(self.TOPICS)
+        self._subscribe_to_topics(self.TOPICS)
 
         self.command_status = False
         self.light_status = False
@@ -32,7 +32,7 @@ class BathroomAutomation(AutomationPubSub):
 
         
 
-    def on_message(self,client, userdata, message):
+    def handle_message(self, topic, payload):
         """ Change the dimmer control according to the bathroom motion sensor
         Expects the following message format:
         {
@@ -45,21 +45,17 @@ class BathroomAutomation(AutomationPubSub):
 
         
         """
-        received = str(message.payload.decode("utf-8"))
+        
     
-        try:
-            payload = json.loads(message.payload.decode("utf-8"))
-            logging.debug("New Message")
-            logging.debug(received)
-            logging.debug(message.topic)
+        try:            
 
-            if message.topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_MOTION_SENSOR}':
+            if topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_MOTION_SENSOR}':
                 if payload["occupancy"]:
                     self.set_light(status = True)
                 else: 
                     self.set_light(status = False)
 
-            if message.topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_DIMMER}':
+            if topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_DIMMER}':
                 if payload["state"].lower() == "on":
                     self.light_status = True
                 if payload["state"].lower() == "off":

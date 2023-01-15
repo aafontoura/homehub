@@ -11,23 +11,20 @@ logging.basicConfig(
         ]
 )
 
-
-
-
 class StorageLightAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WINDOW_SENSOR = "0x00158d00054d63cc"
+    STORAGE_WALL_SWITCH = "Storage Wall Switch"
+    STORAGE_WINDOW_SENSOR = "Storage Door Switch"    
     TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):
-        super().__init__(broker_ip,name)
-        self.new_topics(self.TOPICS)
+        super().__init__(broker_ip,name)        
+        self._subscribe_to_topics(self.TOPICS)        
+    
 
-        
-
-    def on_message(self,client, userdata, message):
-        """ Change the switch according to the door sensor
+    def handle_message(self, topic, payload):
+        """ 
         Expects the following message format:
         {
             "battery":97,
@@ -39,35 +36,36 @@ class StorageLightAutomation(AutomationPubSub):
 
         
         """
-        received = str(message.payload.decode("utf-8"))
-    
-        try:
-            storage_sensor = json.loads(message.payload.decode("utf-8"))
-            logging.debug("New Message")
-            logging.debug(received)
-            logging.debug(message.topic)
-
-            if storage_sensor["contact"]:
-                self.set_light(status = False)
-            else: 
-                self.set_light(status = True)
-                self.timer = threading.Timer(self.TIMEOUT, self.set_light)
-                self.timer.start()
-        except Exception as e:
-            return
+        if topic == f'{self.ROOT_TOPIC}/{self.STORAGE_WINDOW_SENSOR}':
+            storage_sensor = payload
+            try:
+                if storage_sensor["contact"]:
+                    self.set_light(status = False)
+                else: 
+                    self.set_light(status = True)
+                    self.timer = threading.Timer(self.TIMEOUT, self.set_light)
+                    self.timer.start()
+            except KeyError as e:
+                logging.error(f'Error:{e}')
+        else:
+            logging.debug(f'Skipping: {topic}')
 
     def set_light(self,status = False):
         if status:
             command = '{"state_right":"ON"}'
         else:
             command = '{"state_right":"OFF"}'
-        logging.debug(f'sending: {command}')
-        self.client.publish("zigbee2mqtt/storage_switch/set",command)
+        logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.STORAGE_WALL_SWITCH}/set')
+        self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_WALL_SWITCH}/set',command)
+        
 
 
+    
+
+        
 
 broker = "192.168.1.10"
-name = "automation.storage_switch"
+name = "automation.strorage_light"
 
 storage_automation = StorageLightAutomation(broker_ip = broker, name = name)
 storage_automation.connect()
