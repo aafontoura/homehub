@@ -1,0 +1,19 @@
+version: '3.3'
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    restart: unless-stopped
+    environment:
+      - TZ=$TZ
+    #   - PLEX_CLAIM=<claimToken>
+    network_mode: host
+    volumes:
+      - ~/config/media/appdata/plex:/config
+      - /srv/dev-disk-by-label-media/series:/tv
+      - /srv/dev-disk-by-label-media/movies:/movies
+      - /srv/dev-disk-by-label-media:/data
+      - /srv/dev-disk-by-label-media/transcode:/transcode
+    devices:
+      - /dev/dri:/dev/dri
+    privileged: true

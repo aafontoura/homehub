@@ -1,150 +1,128 @@
-version: '3'
+version: '3.3'
 services:
- transmission-openvpn:
-    volumes:
-        - /srv/dev-disk-by-label-media/downloads:/media/downloads
-        - '/srv/dev-disk-by-label-media/downloads:/data'
-        - /etc/localtime:/etc/localtime:ro
-    environment:
-        # - PUID=1000
-        # - PGID=100
-        - CREATE_TUN_DEVICE=true
-        - OPENVPN_PROVIDER=NORDVPN
-        # - OPENVPN_CONFIG=default
-        - NORDVPN_COUNTRY=NL
-        # - OPENVPN_CONFIG=netherlands,belgium,germany,france,austria,italy
-        - NORDVPN_CATEGORY=legacy_p2p
-        - NORDVPN_PROTOCOL=udp
-        - OPENVPN_USERNAME=zsVdahouT8XTktzAaNUQUSW5
-        - OPENVPN_PASSWORD=3JixR4YqAWTBFQJu4nPyUFLi
-        - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
-        - WEBPROXY_ENABLED=false
-        - LOCAL_NETWORK=192.168.1.0/24
-        - TRANSMISSION_SCRAPE_PAUSED_TORRENTS_ENABLED=false
-        # - OVERRIDE_DNS_1=8.8.8.8
-        # - OVERRIDE_DNS_2=208.67.220.220
-        # - DNS=8.8.8.8, 8.8.4.4 #208.67.222.222,208.67.220.220
-    dns:
-        - 208.67.222.222
-        - 208.67.220.220
-    cap_add:
-        - NET_ADMIN
-    logging:
-        driver: json-file
-        options:
-            max-size: 10m
-    ports:
-        - 9091:9091
-        - 9117:9117
-        - 7878:7878
-        - 8989:8989
-        - 8686:8686
-        - 5299:5299        
-    restart: always
-    image:  haugene/transmission-openvpn:latest #:latest-armhf
-    container_name: transmission
- 
- jackett:
-    image: linuxserver/jackett
-    container_name: jackett
-    network_mode: "service:transmission-openvpn"
-    environment:
-        - PUID=1000
-        - PGID=100
-        - TZ=Europe/Netherlands
-        - AUTO_UPDATE=true #optional
-        - RUN_OPTS=#optional
-    volumes:
-        - ~/config/media/jackett:/config
-        #Jackett only needs config
-    restart: unless-stopped
- 
- radarr:
-    image: linuxserver/radarr
-    network_mode: "service:transmission-openvpn"
-    container_name: radarr
-    environment:
-        - PUID=1000
-        - PGID=100
-        - TZ=Europe/Netherlands
-        - UMASK_SET=022 #optional
-    volumes:
-        - ~/config/media/radarr:/config
-        - /srv/dev-disk-by-label-media/movies:/media
-        - /srv/dev-disk-by-label-media/downloads:/downloads
-        - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
-    restart: unless-stopped
- 
- sonarr:
-    image: linuxserver/sonarr:latest
-    network_mode: "service:transmission-openvpn"
-    container_name: sonarr
-    environment:
-        - PUID=1000
-        - PGID=100
-        - TZ=Europe/Netherlands
-        - UMASK_SET=022 #optional
-    volumes:
-        - ~/config/media/sonarr:/config
-        - /srv/dev-disk-by-label-media/series:/media
-        - /srv/dev-disk-by-label-media/downloads:/downloads
-        - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
-    restart: unless-stopped
- 
- lidarr:
-    image: linuxserver/lidarr
-    network_mode: "service:transmission-openvpn"
-    container_name: lidarr
-    environment:
-        - PUID=1000
-        - PGID=100
-        - TZ=Europe/Netherlands
-        - UMASK_SET=022 #optional
-    volumes:
-        - ~/config/media/lidarr:/config
-        - /srv/dev-disk-by-label-media/music:/media
-        - /srv/dev-disk-by-label-media/downloads:/downloads
-        - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
-    restart: unless-stopped
- plex:
-    container_name: plex
-    image: plexinc/pms-docker
-    restart: unless-stopped
-    environment:
-      - TZ=NL
-    #   - PLEX_CLAIM=<claimToken>
-    network_mode: host
-    volumes:
-      - ~/config/media/appdata/plex:/config
-      - /srv/dev-disk-by-label-media/series:/tv
-      - /srv/dev-disk-by-label-media/movies:/movies
-      - /srv/dev-disk-by-label-media:/data
-      - /srv/dev-disk-by-label-media/transcode:/transcode
-#  plex:
-#     image: linuxserver/plex
-#     container_name: plex
-#     network_mode: host
-#     environment:
-#         - PUID=1000
-#         - PGID=100
-#         - VERSION=docker
-#         - PLEX_CLAIM= #optional
-#     ports:
-#         - 32400:32400
-#         - 1900:1900/udp
-#         - 3005:3005
-#         - 5353:5353/udp
-#         - 8324:8324
-#         - 32410:32410/udp
-#         - 32412:32412/udp
-#         - 32413:32413/udp
-#         - 32414:32414/udp
-#         - 32469:32469
-#     volumes:
-#       - ~/config/media/appdata/plex:/config
-#       - /srv/dev-disk-by-label-media/series:/tv
-#       - /srv/dev-disk-by-label-media/movies:/movies
-#     restart: unless-stopped
- 
-#  cd 
-# oGrohHcLLFFffkyKdfRyjEka5P51hQae
+    transmission-openvpn:
+        volumes:
+            - /srv/dev-disk-by-label-media/downloads:/media/downloads
+            - '/srv/dev-disk-by-label-media/downloads:/data'
+            - /etc/localtime:/etc/localtime:ro
+            # - /srv/dev-disk-by-label-media/home/antonio/nordvpn:/etc/openvpn/nordvpn
+        environment:
+            # - PUID=1000
+            # - PGID=100
+            - TZ=NL
+            - CREATE_TUN_DEVICE=true
+            - OPENVPN_PROVIDER=NORDVPN
+            # - OPENVPN_CONFIG=NL
+            - NORDVPN_COUNTRY=NL
+            # - OPENVPN_CONFIG=spain #,belgium,germany,france,austria,italy
+            - NORDVPN_CATEGORY=legacy_p2p
+            - NORDVPN_PROTOCOL=udp
+            - OPENVPN_USERNAME=zsVdahouT8XTktzAaNUQUSW5
+            - OPENVPN_PASSWORD=WCbjb6KfDJmCPDM4cEqmPZY7
+            - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
+            - WEBPROXY_ENABLED=false
+            - LOCAL_NETWORK=192.168.1.0/24
+            - TRANSMISSION_SCRAPE_PAUSED_TORRENTS_ENABLED=false
+            - OVERRIDE_DNS_1=8.8.8.8
+            # - OVERRIDE_DNS_2=208.67.220.220
+            # - DNS=8.8.8.8, 8.8.4.4 #208.67.222.222,208.67.220.220
+
+        dns:
+            - 208.67.222.222
+            - 208.67.220.220
+        cap_add:
+            - NET_ADMIN
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+        ports:
+            - 9091:9091
+            - 9117:9117
+            - 7878:7878
+            - 8989:8989
+            - 8686:8686
+            - 5299:5299
+        restart: on-failure:600
+        image: haugene/transmission-openvpn:latest #:latest-armhf
+        container_name: transmission
+
+    jackett:
+        image: linuxserver/jackett
+        container_name: jackett
+        network_mode: "service:transmission-openvpn"
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - AUTO_UPDATE=true #optional
+            - RUN_OPTS=#optional
+        volumes:
+            - ~/config/media/jackett:/config
+            #Jackett only needs config
+        restart: unless-stopped
+
+    radarr:
+        image: linuxserver/radarr
+        network_mode: "service:transmission-openvpn"
+        container_name: radarr
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+        volumes:
+            - /srv/dev-disk-by-label-media/configs/media_server/radarr:/config
+            - /srv/dev-disk-by-label-media/movies:/media
+            - /srv/dev-disk-by-label-media/downloads:/downloads
+            - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
+        restart: unless-stopped
+
+    sonarr:
+        image: linuxserver/sonarr:latest
+        network_mode: "service:transmission-openvpn"
+        container_name: sonarr
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+        volumes:
+            - /srv/dev-disk-by-label-media/configs/media_server/sonarr:/config
+            - /srv/dev-disk-by-label-media/series:/media
+            - /srv/dev-disk-by-label-media/downloads:/downloads
+            - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
+        restart: unless-stopped
+
+    lidarr:
+        image: linuxserver/lidarr
+        network_mode: "service:transmission-openvpn"
+        container_name: lidarr
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+        volumes:
+            - ~/config/media/lidarr:/config
+            - /srv/dev-disk-by-label-media/music:/media
+            - /srv/dev-disk-by-label-media/downloads:/downloads
+            - /srv/dev-disk-by-label-media/downloads/completed:/data/completed
+        restart: unless-stopped
+    # plex:
+    #     container_name: plex
+    #     image: plexinc/pms-docker
+    #     restart: unless-stopped
+    #     environment:
+    #         - TZ=$TZ
+    #     #   - PLEX_CLAIM=<claimToken>
+    #     network_mode: host
+    #     volumes:
+    #         - ~/config/media/appdata/plex:/config
+    #         - /srv/dev-disk-by-label-media/series:/tv
+    #         - /srv/dev-disk-by-label-media/movies:/movies
+    #         - /srv/dev-disk-by-label-media:/data
+    #         - /srv/dev-disk-by-label-media/transcode:/transcode
+    #     devices:
+    #         - /dev/dri:/dev/dri
+    #     privileged: true

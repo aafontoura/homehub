@@ -1,7 +1,7 @@
 version: '3'
 services:
   app:
-    image: 'jc21/nginx-proxy-manager:latest'
+    image: 'nginx:latest'
     ports:
       - '80:80'
       - '81:81'
@@ -15,6 +15,10 @@ services:
     volumes:
       - /srv/dev-disk-by-label-media/configs/nginx/data:/data
       - /srv/dev-disk-by-label-media/configs/nginx/letsencrypt:/etc/letsencrypt
+      - /srv/dev-disk-by-label-media/configs/nginx/etc:/etc/nginx
+  certbot:
+    image: certbot/certbot
+  
   db:
     image: 'jc21/mariadb-aria:latest'
     environment:

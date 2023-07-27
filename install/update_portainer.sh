@@ -13,4 +13,3 @@ elif [ $1 == "arm" ]
     else
         echo "Architecture not recognized: $1"
     fi
-fi

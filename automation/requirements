@@ -1,2 +1,2 @@
-paho
-'influxdb-client[ciso]'
+paho-mqtt
+influxdb-client

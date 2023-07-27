@@ -1,4 +1,4 @@
-cp automation/*.service /etc/systemd/system
+cp /srv/dev-disk-by-label-media/home/antonio/homehub/automation/*.service /etc/systemd/system
 
 systemctl enable automation-ventilation.service
 systemctl start automation-ventilation.service
