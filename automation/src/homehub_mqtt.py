@@ -1,19 +1,27 @@
 import time,json, logging, threading, socket
 import paho.mqtt.client as paho
+from json.decoder import JSONDecodeError
 
 class AutomationPubSub:
     RECONNECTION_TIMER = 10
     def __init__(self, broker_ip:str, name:str):
         self.name = name
         self.client= paho.Client(client_id=self.name, clean_session=False)
-        self.client.on_message = self.on_message
+        self.client.on_message = self.__on_message
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.broker_ip = broker_ip
         self.topics = []
         self._timer_reconnect = None
 
+    
     def new_topics(self,topics):
+        """
+        To support legacy calls
+        """
+        self._subscribe_to_topics(topics)
+
+    def _subscribe_to_topics(self,topics):
         for topic in topics:
             self.topics.append(topic)
 
@@ -23,12 +31,31 @@ class AutomationPubSub:
         self.client.loop_start()
          
 
+
+    def __on_message(self, client, userdata, message):
+        received = str(message.payload.decode("utf-8"))
+
+        try:
+            payload = json.loads(str(message.payload.decode("utf-8")))
+        except JSONDecodeError as e:
+            logging.debug(f'payload is not JSON: \n{received}\n Error:{e}')
+            payload = received
+            
+        logging.debug(f'New message payload from {message.topic}:\n{payload}')
+
+
+        self.handle_message(message.topic, payload)
+
     def on_message(self,client, userdata, message):
+        assert("Not Implemented")
+
+    def handle_message(self, topic, payload):
         assert("Not Implemented")
 
     def on_connect(self,client, userdata, message, properties=None):
         logging.debug("on_connect fired")        
         for topic in self.topics:
+            logging.debug(f'Subscribing to: {topic}')
             client.subscribe(topic,qos=1)
 
     def on_disconnect(self,client, userdata, message):

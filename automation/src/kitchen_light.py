@@ -1,5 +1,6 @@
 import time,json, logging, threading
 import paho.mqtt.client as paho
+from enum import Enum
 
 from homehub_mqtt import AutomationPubSub
 
@@ -11,14 +12,17 @@ logging.basicConfig(
         ]
 )
 
-
+class State(Enum):
+    ON = 1
+    OFF = 2
+    UNKNOWN = 3
 
 
 class KitchenLightAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
     LIVING_ROOM_LIGHT_SWITCH = "Living Room Wall Switch"
-    STORAGE_SWITCH = "storage_switch"
+    STORAGE_SWITCH = "Storage Wall Switch"
     KITCHEN_ISLAND_LIGHTS = "Kitchen Island Lights"
 
     
@@ -28,13 +32,45 @@ class KitchenLightAutomation(AutomationPubSub):
 
     def __init__(self, broker_ip:str, name:str):
         super().__init__(broker_ip,name)
-        self._spotlight_status = False
-        self._islandlight_status = False
+        self.__spotlight_status = State.UNKNOWN
+        self.__islandlight_status = State.UNKNOWN
         
-        self.new_topics(self.TOPICS)
+        self._subscribe_to_topics(self.TOPICS)        
+    
+
+    def handle_message(self, topic, payload):
+        """ 
+        Expects the following message format:
+        {
+            
+        }
+
         
+        """
+                
+        logging.debug(f'Current state-> spot:{self.spotlight_status} island:{self.islandlight_status}')
+
         
-        
+        if topic == f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}':            
+            self.islandlight_status = payload["state"]
+
+        if topic == f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}':            
+            self.spotlight_status = payload["state_left"]
+
+        try:
+            if topic == f'{self.ROOT_TOPIC}/{self.LIVING_ROOM_LIGHT_SWITCH}' and \
+                payload["action"] == "single_right":
+                
+                if self.spotlight_status:
+                    if self.islandlight_status:
+                        self.set_kitchen_lights("off")
+                    else:
+                        self.set_island_light("on")
+                else:
+                    self.set_kitchen_lights("on")
+        except KeyError as e:
+            logging.error(f'Error: {e}. \n\nPayload: {payload}\n\n')
+
 
     def get_lights_status(self):
         command = '{"state": ""}'
@@ -44,85 +80,12 @@ class KitchenLightAutomation(AutomationPubSub):
         command = '{"state_left": ""}'
         logging.debug(f'sending: {command}')
         self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/get',command)
-        
-    @property
-    def spotlight_status(self):
-        return self._spotlight_status
-
-    @spotlight_status.setter
-    def spotlight_status(self,status):
-        logging.debug(f'Setter spot light:{status}')
-        if status.lower() == "on":
-            self._spotlight_status = True
-        elif status.lower() == "off":
-            self._spotlight_status = False
-
-    @property
-    def islandlight_status(self):
-        return self._islandlight_status
-
-    @islandlight_status.setter
-    def islandlight_status(self,status):
-        logging.debug(f'Setter insland light:{status}')
-        if status.lower() == "on":
-            self._islandlight_status = True
-        elif status.lower() == "off":
-            self._islandlight_status = False
-
-    def on_message(self, client, userdata, message):
-        """ 
-        Expects the following message format:
-        {
-            "battery":97,
-            "contact":bool,
-            "linkquality":255,
-            "temperature":25,
-            "voltage":2995
-        }
-
-        
-        """
-        payload = json.loads(str(message.payload.decode("utf-8")))
-    
-        # try:
-            
-        logging.debug("New Message")
-        logging.debug(f'spot:{self.spotlight_status} island:{self.islandlight_status}')
-        logging.debug(payload)
-        logging.debug(message.topic)
-        logging.debug(self.LIVING_ROOM_LIGHT_SWITCH)
-
-       
-        
-        if message.topic == f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}':
-            
-            self.islandlight_status = payload["state"]
-
-        if message.topic == f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}':
-            
-            self.spotlight_status = payload["state_left"]
-
-        if message.topic == f'{self.ROOT_TOPIC}/{self.LIVING_ROOM_LIGHT_SWITCH}' and \
-            payload["action"] == "single_right":
-            
-            if self.spotlight_status:
-                if self.islandlight_status:
-                    self.set_kitchen_lights("off")
-                else:
-                    self.set_island_light("on")
-            else:
-                self.set_kitchen_lights("on")
-
-
-
 
     def set_kitchen_lights(self, status):
         if status.lower() == "on":
             command = '{"state_left":"ON"}'
             logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set')
             self.client.publish(f'{self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set',command)
-
-
         else:
             command = '{"state_left":"OFF"}'
             logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.STORAGE_SWITCH}/set')
@@ -135,17 +98,31 @@ class KitchenLightAutomation(AutomationPubSub):
         logging.debug(f'sending: {command} to {self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/set')
         self.client.publish(f'{self.ROOT_TOPIC}/{self.KITCHEN_ISLAND_LIGHTS}/set',command)
  
+    @property
+    def spotlight_status(self):
+        return self.__spotlight_status==State.ON
 
+    @spotlight_status.setter
+    def spotlight_status(self,status):
+        logging.debug(f'Setter spot light:{status}')
+        if status.lower() == "on":
+            self.__spotlight_status = State.ON
+        elif status.lower() == "off":
+            self.__spotlight_status = State.OFF
+
+    @property
+    def islandlight_status(self):
+        return self.__islandlight_status
+
+    @islandlight_status.setter
+    def islandlight_status(self,status):
+        logging.debug(f'Setter insland light:{status}')
+        if status.lower() == "on":
+            self.__islandlight_status = True
+        elif status.lower() == "off":
+            self.__islandlight_status = False
 
         
-
-    def toggle_bed_LED(self):
-        
-        command = 'TOGGLE'
-        logging.debug(f'sending: {command}')
-        self.client.publish("homehub/cmnd/sonoff-bedroom/POWER",command)
-
-
 
 broker = "192.168.1.10"
 name = "automation.kitchen_lights"
