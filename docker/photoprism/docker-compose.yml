@@ -102,14 +102,14 @@ services:
     working_dir: "/photoprism"
     volumes:
       ## The *originals* folder contains your original photo and video files (- "[host folder]:/photoprism/originals"):
-      - "~/Pictures:/photoprism/originals"
+      - "/mnt/user/Pictures:/photoprism/originals"
       ## Multiple folders can be made accessible by mounting them as subfolders of /photoprism/originals:
       # - "/mnt/Family:/photoprism/originals/Family"    # [folder 1]:/photoprism/originals/[folder 1]
       # - "/mnt/Friends:/photoprism/originals/Friends"  # [folder 2]:/photoprism/originals/[folder 2]
       ## You may mount an *import* folder from which files can be transferred to *originals* (optional):
       # - "~/Import:/photoprism/import"
       ## Cache, session, thumbnail, and sidecar files will be created in the *storage* folder (never remove):
-      - "./storage:/photoprism/storage"
+      - "/mnt/user/appdata/photoprism-custom:/photoprism/storage"
 
   ## Database Server (recommended)
   ## see https://docs.photoprism.app/getting-started/faq/#should-i-use-sqlite-mariadb-or-mysql
@@ -124,7 +124,7 @@ services:
     command: mysqld --innodb-buffer-pool-size=128M --transaction-isolation=READ-COMMITTED --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=512 --innodb-rollback-on-timeout=OFF --innodb-lock-wait-timeout=120
     ## Never store database files on an unreliable device such as a USB flash drive, an SD card, or a shared network folder:
     volumes:
-      - "./database:/var/lib/mysql" # Important, don't remove
+      - "/mnt/user/appdata/photoprism-custom/db:/var/lib/mysql" # Important, don't remove
     environment:
       MYSQL_ROOT_PASSWORD: dbpswd
       MYSQL_DATABASE: photoprism

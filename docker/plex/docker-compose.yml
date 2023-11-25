@@ -5,15 +5,15 @@ services:
     image: plexinc/pms-docker
     restart: unless-stopped
     environment:
-      - TZ=$TZ
+      - TZ=NL
     #   - PLEX_CLAIM=<claimToken>
     network_mode: host
     volumes:
-      - ~/config/media/appdata/plex:/config
-      - /srv/dev-disk-by-label-media/series:/tv
-      - /srv/dev-disk-by-label-media/movies:/movies
-      - /srv/dev-disk-by-label-media:/data
-      - /srv/dev-disk-by-label-media/transcode:/transcode
+      - /mnt/user/appdata/plex:/config
+      - /mnt/user/data/media/series:/tv
+      - /mnt/user/data/media/movies:/movies
+      - /mnt/user/data/app/plex:/data
+      - /mnt/user/data/app/transcode:/transcode
     devices:
       - /dev/dri:/dev/dri
     privileged: true

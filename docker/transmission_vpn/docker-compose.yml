@@ -1,0 +1,27 @@
+version: '3.3'
+services:
+    transmission-openvpn:
+        volumes:
+            - /mnt/user/downloads:/media/downloads
+            - /mnt/user/data/app/transmission:/data
+            - /mnt/user/homehub_config/transmission:/config
+            - /etc/localtime:/etc/localtime:ro
+            # - /srv/dev-disk-by-label-media/home/antonio/nordvpn:/etc/openvpn/nordvpn
+        env_file:
+            - transmisson.env
+
+        dns:
+            - 208.67.222.222
+            - 208.67.220.220
+        cap_add:
+            - NET_ADMIN
+        logging:
+            driver: json-file
+            options:
+                max-size: 120m
+        ports:
+            - 9091:9091            
+        # restart: on-failure:1200
+        # restart: never
+        image: haugene/transmission-openvpn:latest #:latest-armhf
+        container_name: transmission

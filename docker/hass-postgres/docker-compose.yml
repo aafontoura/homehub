@@ -1,0 +1,16 @@
+version: '3'
+services:
+  hass-postgresdb:
+    container_name: hass-postgresdb
+    env_file:
+      - .env
+      - common.env
+      
+    image: "postgres:16.1-alpine"
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/user/appdata/hass-postgresdb:/var/lib/postgresql/data
+  

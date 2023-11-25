@@ -10,7 +10,7 @@ services:
     restart: always
     command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     volumes:
-      - /srv/dev-disk-by-label-media/configs/nextcloud/db:/var/lib/mysql
+      - /mnt/user/appdata/nextcloud/db:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=J6uYvM3cn43nmT
       - MYSQL_PASSWORD=wyCecgV9dT4p86
@@ -25,7 +25,7 @@ services:
     links:
       - db
     volumes:
-      - /srv/dev-disk-by-label-media/cloud:/var/www/html
+      - /mnt/user/data/cloud:/var/www/html
     environment:
       - MYSQL_PASSWORD=wyCecgV9dT4p86
       - MYSQL_DATABASE=nextcloud

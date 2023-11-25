@@ -1,0 +1,110 @@
+version: '3.3'
+services:  
+    transmission-openvpn:
+        volumes:
+            - /mnt/user/downloads:/media/downloads
+            - /mnt/user/downloads:/data
+            - /mnt/user/homehub_config/transmission:/config
+            - /etc/localtime:/etc/localtime:ro
+            # - /srv/dev-disk-by-label-media/home/antonio/nordvpn:/etc/openvpn/nordvpn
+        env_file:
+            - transmisson.env
+        networks:
+            - media-search-net
+        dns:
+            - 208.67.222.222
+            - 208.67.220.220
+        cap_add:
+            - NET_ADMIN
+        logging:
+            driver: json-file
+            options:
+                max-size: 120m
+        ports:
+            - 9091:9091            
+        restart: on-failure:6
+        # restart: never
+        image: haugene/transmission-openvpn:latest #:latest-armhf
+        container_name: transmission    
+    jackett:
+        image: linuxserver/jackett
+        container_name: jackett
+        networks:
+            - media-search-net
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - AUTO_UPDATE=true #optional
+            - RUN_OPTS=#optional
+        volumes:
+            - /mnt/user/homehub_config/media_search/jackett:/config
+            #Jackett only needs config
+        restart: unless-stopped
+        ports:
+            - 9117:9117
+
+    radarr:
+        image: linuxserver/radarr
+        # network_mode: host
+        container_name: radarr
+        networks:
+            - media-search-net
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+            
+        volumes:
+            - /mnt/user/homehub_config/media_search/radarr:/config
+            - /mnt/user/data/media/movies:/media
+            - /mnt/user/downloads:/downloads
+            - /mnt/user/downloads/completed:/data/completed
+        restart: unless-stopped
+        ports:
+            - 7878:7878
+
+
+    sonarr:
+        image: linuxserver/sonarr:latest
+        container_name: sonarr
+        networks:
+            - media-search-net
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+        volumes:
+            - /mnt/user/homehub_config/media_search/sonarr:/config
+            - /mnt/user/data/media/series:/media
+            - /mnt/user/downloads:/downloads
+            - /mnt/user/downloads/completed:/data/completed
+        restart: unless-stopped
+        ports:
+            - 8989:8989
+
+    lidarr:
+        image: linuxserver/lidarr
+        container_name: lidarr
+        environment:
+            - PUID=1000
+            - PGID=100
+            - TZ=Europe/Netherlands
+            - UMASK_SET=022 #optional
+        volumes:
+            - /mnt/user/homehub_config/media_search/lidarr:/config
+            - /mnt/user/data/media/music:/media
+            - /mnt/user/downloads:/downloads
+            - /mnt/user/downloads/completed:/data/completed
+        restart: unless-stopped
+        networks:
+            - media-search-net
+        ports:
+            - 8686:8686
+            # - 5299:5299
+
+networks:
+  media-search-net:
+    driver: bridge
