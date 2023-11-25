@@ -21,9 +21,9 @@ class State(Enum):
 class KitchenLightAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    LIVING_ROOM_LIGHT_SWITCH = "Living Room Wall Switch"
-    STORAGE_SWITCH = "Storage Wall Switch"
-    KITCHEN_ISLAND_LIGHTS = "Kitchen Island Lights"
+    LIVING_ROOM_LIGHT_SWITCH = "Living Room Switch"
+    STORAGE_SWITCH = "Storage Switch"
+    KITCHEN_ISLAND_LIGHTS = "Island Lights Kitchen Switch"
 
     
     TOPICS = [f'{ROOT_TOPIC}/{LIVING_ROOM_LIGHT_SWITCH}',
@@ -124,7 +124,7 @@ class KitchenLightAutomation(AutomationPubSub):
 
         
 
-broker = "192.168.1.10"
+broker = "192.168.1.60"
 name = "automation.kitchen_lights"
 
 kitchen_lights = KitchenLightAutomation(broker_ip = broker, name = name)

@@ -90,7 +90,7 @@ class BathroomAutomation(AutomationPubSub):
 
 
 
-broker = "192.168.1.10"
+broker = "192.168.1.60"
 name = "automation.bathroom_switch"
 
 bathroom_automation = BathroomAutomation(broker_ip = broker, name = name)

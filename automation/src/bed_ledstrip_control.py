@@ -54,7 +54,7 @@ class BedLEDStripAutomation(AutomationPubSub):
 
 
 
-broker = "192.168.1.10"
+broker = "192.168.1.60"
 name = "automation.bed_ledstrip"
 
 bed_ledstrip = BedLEDStripAutomation(broker_ip = broker, name = name)

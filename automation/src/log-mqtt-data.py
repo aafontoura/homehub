@@ -11,7 +11,7 @@ logging.basicConfig(
         ]
 )
 
-broker="192.168.1.10"
+broker = "192.168.1.60"
 
 
 

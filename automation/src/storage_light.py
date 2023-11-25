@@ -14,8 +14,8 @@ logging.basicConfig(
 class StorageLightAutomation(AutomationPubSub):
     TIMEOUT = 180
     ROOT_TOPIC = "zigbee2mqtt"
-    STORAGE_WALL_SWITCH = "Storage Wall Switch"
-    STORAGE_WINDOW_SENSOR = "Storage Door Switch"    
+    STORAGE_WALL_SWITCH = "Storage Switch"
+    STORAGE_WINDOW_SENSOR = "Door Storage Switch"    
     TOPICS = [f'{ROOT_TOPIC}/{STORAGE_WINDOW_SENSOR}']
 
     def __init__(self, broker_ip:str, name:str):
@@ -64,7 +64,7 @@ class StorageLightAutomation(AutomationPubSub):
 
         
 
-broker = "192.168.1.10"
+broker = "192.168.1.60"
 name = "automation.strorage_light"
 
 storage_automation = StorageLightAutomation(broker_ip = broker, name = name)

@@ -37,11 +37,11 @@ class VentilationAutomation(AutomationPubSub):
         if topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_TEMPERATURE_SENSOR}':           
         
             try:
-                if bathroom_sensor['humidity'] > 85:
+                if payload['humidity'] > 85:
                     self.set_ventilation(95)
-                elif bathroom_sensor['humidity'] > 80:
+                elif payload['humidity'] > 80:
                     self.set_ventilation(70)
-                elif bathroom_sensor['humidity'] > 75:
+                elif payload['humidity'] > 75:
                     self.set_ventilation(50)
                 else:
                     self.set_ventilation(8)
@@ -61,7 +61,7 @@ class VentilationAutomation(AutomationPubSub):
 
 
 
-broker = "192.168.1.10"
+broker = "192.168.1.60"
 name = "automation.ventilation"
 
 ventilation_automation = VentilationAutomation(broker_ip = broker, name = name)
