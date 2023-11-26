@@ -1,0 +1,15 @@
+version: '3'
+services:
+  postgresdb:
+    container_name: postgresdb
+    env_file:
+      - secret.env      
+    image: "postgres:16.1-alpine"
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ~/appdata/postgresdb:/var/lib/postgresql/data
+      
+  

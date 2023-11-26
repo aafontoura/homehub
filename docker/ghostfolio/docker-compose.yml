@@ -1,0 +1,17 @@
+version: '3.7'
+services:
+  ghostfolio:
+    image: ghostfolio/ghostfolio:latest
+    env_file:
+      - .env      
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=prefer
+      NODE_ENV: production
+      REDIS_HOST: 'redis'
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - 3333:3333  
+
+  redis:
+    image: 'redis:alpine'
+
