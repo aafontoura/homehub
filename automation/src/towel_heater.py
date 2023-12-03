@@ -189,15 +189,16 @@ class TowelHeaterAutomation(AutomationPubSub):
         self._timer.start()
 
 
-        
 
-broker = "192.168.1.60"
-name = "automation.towel_heater"
+if __name__ == '__main__':
 
-storage_automation = TowelHeaterAutomation(broker_ip = broker, name = name)
-storage_automation.connect()
+    broker = "192.168.1.60"
+    name = "automation.towel_heater"
+
+    storage_automation = TowelHeaterAutomation(broker_ip = broker, name = name)
+    storage_automation.connect()
 
 
-while True:
-    time.sleep(2)
+    while True:
+        time.sleep(2)
 
