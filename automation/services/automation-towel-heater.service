@@ -1,0 +1,11 @@
+[Unit]
+Description=Towel Heater Control
+After=network.target
+
+[Service]
+ExecStart=/home/antau/homehub/automation/.venv/bin/python -m home.antau.homehub.automation.src.towel_heater
+Restart=on-failure
+User=antau
+
+[Install]
+WantedBy=multi-user.target

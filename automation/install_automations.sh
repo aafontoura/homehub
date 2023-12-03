@@ -1,16 +1,15 @@
-cp services/*.service /etc/systemd/system
+#!/bin/bash
 
-systemctl enable automation-ventilation.service
-systemctl restart automation-ventilation.service
-systemctl enable logger-ventilation.service
-systemctl restart logger-ventilation.service
-systemctl enable storage-light.service
-systemctl restart storage-light.service
-systemctl enable automation-bed-ledstrip.service
-systemctl restart automation-bed-ledstrip.service
-systemctl enable automation-kitchen-lights.service
-systemctl restart automation-kitchen-lights.service
-systemctl enable automation-bathroom-light.service
-systemctl restart automation-bathroom-light.service
 
+# Define an array of folders
+services=("automation-ventilation" "logger-ventilation" "storage-light" "automation-bed-ledstrip" "automation-kitchen-lights" "automation-bathroom-light" "automation-towel-heater")
+
+# Loop through the folders and call docker-compose for each one
+for service in "${services[@]}"
+do
+    echo "Installing $service"
+    cp services/"$service".service /etc/systemd/system
+    systemctl enable "$service".service
+    systemctl restart "$service".service
+done
 
