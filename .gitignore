@@ -2,3 +2,5 @@ __pycache__
 .venv
 docker/ghostfolio/.env
 docker/postgres/secret.env
+docker/grafana/.env
+docker/influx/.env
