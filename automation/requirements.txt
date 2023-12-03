@@ -2,7 +2,6 @@ asttokens==2.4.1
 colorama==0.4.6
 exceptiongroup==1.2.0
 executing==2.0.1
-homehub-automations==0.1
 icecream==2.1.3
 iniconfig==2.0.0
 packaging==23.2
