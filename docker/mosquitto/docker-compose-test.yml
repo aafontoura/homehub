@@ -1,0 +1,16 @@
+version: '3'
+services:
+  broker-test:
+    container_name: broker-test
+    image: eclipse-mosquitto
+    volumes:
+      - ~/appdata/broker-test/data:/mosquitto/data 
+      - ~/appdata/broker-test/log:/mosquitto/log
+      - ~/appdata/broker-test/mosquitto.conf:/mosquitto/config/mosquitto.conf 
+    restart: always
+    ports:
+      - "1888:1883"
+    environment:
+      - TZ=Europe/Amsterdam
+
+      
