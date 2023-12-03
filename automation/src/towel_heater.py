@@ -56,7 +56,7 @@ class TowelHeaterAutomation(AutomationPubSub):
         name (str): Name of the automation instance.
     """
     SHORT_CYCLE_TIME = 1 #  seconds
-    LONG_CYCLE_TIME = 30#*60 #  
+    LONG_CYCLE_TIME = 35*60 # 35 minutes  
     TIME_THRESHOLD_BETWEEN_MESSAGES = 0.01 # seconds
     ROOT_TOPIC = "zigbee2mqtt"
     TOWEL_HEATER = "Bathroom Socket"

@@ -24,7 +24,7 @@ def test_delayed_towel_heater_behavior(mock_delayed_heater, mock_time):
     ROOT_TOPIC = "zigbee2mqtt"
     TOWEL_HEATER = "Bathroom Socket"
     SHORT_CYCLE_TIME = 1
-    LONG_CYCLE_TIME = 30
+    LONG_CYCLE_TIME = 35*60
 
     test_cases = [{"trigger_payload":{"state":"ON"}, "expected_status":False, "time_increment": SHORT_CYCLE_TIME, "expected_command": '{"state":"OFF"}'},
                   {"trigger_payload":{"state":"OFF"}, "expected_status":True, "time_increment": SHORT_CYCLE_TIME, "expected_command": '{"state":"ON"}'},
