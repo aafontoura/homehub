@@ -62,6 +62,20 @@ class AutomationPubSub:
         
         logging.debug("on_disconnect fired")
         self.reconnect()
+
+    def read_config(self, file_path = "config.yaml"):
+        logging.debug(f'Reading config file from {file_path}')
+        try:
+            with open(file_path, 'r') as file:
+                data = yaml.safe_load(file)
+                return data
+        except FileNotFoundError:
+            logging.error(f"File {file_path} not found.")
+            return None
+        except yaml.YAMLError as exc:
+            logging.error(f"Error in YAML file: {exc}")
+            return None
+
         
 
     def reconnect(self):
