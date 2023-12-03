@@ -1,0 +1,26 @@
+version: '3'
+services:
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    volumes:
+      # Mount for influxdb data directory and configuration
+      - $APPDATADIR/influxdb2/config:/etc/influxdb2
+      - $APPDATADIR/influxdb2/db:/var/lib/influxdb2
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "8090:8090"
+      - "2003:2003"
+    environment:
+      - INFLUXDB_DATA_ENGINE=tsm1
+      - INFLUXDB_REPORTING_DISABLED=false
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUX_USER
+      - DOCKER_INFLUXDB_INIT_PASSWORD=$INFLUX_PASSWORD
+      - DOCKER_INFLUXDB_INIT_ORG=homehub
+      - DOCKER_INFLUXDB_INIT_BUCKET=homehub
+      - DOCKER_INFLUXDB_INIT_RETENTION=156w
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUX_ADMIN_TOKEN
+    
