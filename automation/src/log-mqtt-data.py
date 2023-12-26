@@ -16,7 +16,7 @@ broker = "192.168.1.60"
 
 
 
-client = InfluxDBClient(url="http://192.168.1.150:8086", token="pN-D6xk4CYOROjBBRvSCmQEPq_9w3_u1EkrUHQSlmyYGQHx-TLJRhmzzDOTGlSueEtP012AxPgJNijtlCa2eYQ==", org="homehub")
+client = InfluxDBClient(url="http://ubuntuserver:8086", token="Aqueduct6-Schematic-Morse", org="homehub")
 
 write_api = client.write_api(write_options=SYNCHRONOUS)
 query_api = client.query_api()
@@ -39,7 +39,7 @@ def on_message(client, userdata, message):
     except Exception as e:
         return 
 
-bucket = "homehub-bucket"
+bucket = "homehub"
 
 
 
