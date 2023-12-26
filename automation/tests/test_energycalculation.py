@@ -21,7 +21,7 @@ MOCKED_CURRENT_TIME = datetime(2023, 12, 19, 1, 0, 0, tzinfo=pytz.utc)
 
 test_data = [
     {"Current Time": datetime(2023, 12, 19, 1, 0, 0, tzinfo=pytz.utc), 
-     "Start Time": datetime(2023, 12, 19, 3, 27, 0, tzinfo=pytz.utc), 
+     "Start Time": datetime(2023, 12, 19, 3, 0, 0, tzinfo=pytz.utc), 
      "Min Cost": 34.62},    
     
     # current time in the future

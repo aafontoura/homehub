@@ -1,9 +1,19 @@
 import pandas as pd
 import json, pytz
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from icecream import ic
 
 def load_csv(csv_file):
+    """
+    Load a CSV file into a DataFrame and parse the 'Time' column to datetime objects.
+
+    Parameters:
+    csv_file (str): Path to the CSV file.
+
+    Returns:
+    pd.DataFrame: DataFrame with the 'Time' column as datetime objects.
+    """
     df = pd.read_csv(csv_file)
     df['Time'] = pd.to_datetime(df['Time'])
  
@@ -13,12 +23,30 @@ def load_csv(csv_file):
 
 
 def load_json_from_string( json_data):
+    """
+    Load data from a JSON string into a DataFrame and parse the 'start_time' to UTC datetime objects.
+
+    Parameters:
+    json_data (str): JSON data in string format.
+
+    Returns:
+    pd.DataFrame: DataFrame with 'start_time' as UTC datetime objects.
+    """
     data = json.loads(json_data)
     df = pd.DataFrame(data)
     df['start_time'] = pd.to_datetime(df['start_time'], utc=True)
     return df
 
 def load_json_from_file( json_file):
+    """
+    Load data from a JSON file into a DataFrame and parse the 'start_time' to UTC datetime objects.
+
+    Parameters:
+    json_file (str): Path to the JSON file.
+
+    Returns:
+    pd.DataFrame: DataFrame with 'start_time' as UTC datetime objects.
+    """
     with open(json_file, 'r') as file:
         data = json.load(file)
     df = pd.DataFrame(data)
@@ -26,12 +54,28 @@ def load_json_from_file( json_file):
     return df
 
 class EnergyPriceAnalyzer:
+    """
+    A class for analyzing energy prices and appliance profiles to find the cheapest operation period.
+    """
     def __init__(self, appliance_profile, prices):
+        """
+        Initialize the EnergyPriceAnalyzer with appliance profile and price data.
+
+        Parameters:
+        appliance_profile (pd.DataFrame): Appliance usage profile DataFrame.
+        prices (pd.DataFrame): Energy price data DataFrame.
+        """
         self._set_appliance_profile(appliance_profile)
         self.update_prices(prices)
         # self._resample_data()
 
     def _set_prices(self, prices):
+        """
+        Set the price data and filter prices from the current time onwards.
+
+        Parameters:
+        prices (pd.DataFrame): Energy price data DataFrame.
+        """
         self.prices = prices
         
         # Make current_time timezone-naive
@@ -41,6 +85,12 @@ class EnergyPriceAnalyzer:
 
 
     def update_prices(self, prices):
+        """
+        Update the price data and resample it according to the appliance profile's minimum interval.
+
+        Parameters:
+        prices (pd.DataFrame): New energy price data DataFrame.
+        """
         self._set_prices(prices)
 
         if self.appliance_profile is not None:
@@ -51,10 +101,13 @@ class EnergyPriceAnalyzer:
             if isinstance(self.price_resampled.index, pd.MultiIndex):
                 self.price_resampled.index = self.price_resampled.index.get_level_values(0)
 
-            # Now safely localize the index to None
-            # self.price_resampled.index = self.price_resampled.index.tz_localize('UTC')
-
     def _set_appliance_profile(self, appliance_profile):
+        """
+        Set the appliance profile data and calculate its minimum interval and total duration.
+
+        Parameters:
+        appliance_profile (pd.DataFrame): Appliance usage profile DataFrame.
+        """
         self.appliance_profile = appliance_profile      
 
         # Find the smallest time interval in the appliance profile
@@ -64,60 +117,108 @@ class EnergyPriceAnalyzer:
         self.energy_resampled = self.appliance_profile.set_index('Time').resample(self.min_interval).mean().ffill()
         self.energy_resampled.index = self.energy_resampled.index.tz_localize('UTC')
 
+        self.profile_duration = int((self.energy_resampled.index[-1] - self.energy_resampled.index[0]).total_seconds() / 60)
 
-    # def calculate_cost(self, start_time):
-
-    
-
+ 
     def calculate_cost(self, shift_min):
+        """
+        Calculate the total cost for running the appliance, shifted by a certain number of minutes.
+
+        Parameters:
+        shift_min (int): Number of minutes to shift the appliance profile.
+
+        Returns:
+        float: Total cost of running the appliance.
+        """
         shifted_profile = self.energy_resampled.copy()
         shifted_profile.index += pd.Timedelta(minutes=shift_min)
-        merged = pd.merge_asof(shifted_profile, self.price_resampled, left_index=True, right_index=True, direction='nearest')
-        merged['cost'] = merged['Power'] / 1000 * merged['price_ct_per_kwh'] / (3600 / int(self.min_interval.total_seconds()))
-        return merged['cost'].sum()
+        aligned_profile, aligned_prices = shifted_profile.align(self.price_resampled, join='inner', axis=0)
+        result = aligned_profile['Power'] / 1000 * aligned_prices['price_ct_per_kwh'] / (3600 / int(self.min_interval.total_seconds()))
+        return result.sum()
 
-    def find_cheapest_period(self):
+    def find_cheapest_period(self, end_time = None):
+        """
+        Find the cheapest period to run the appliance within a specified timeframe.
+
+        Parameters:
+        end_time (datetime, optional): The end time to consider for finding the cheapest period.
+
+        Returns:
+        tuple: Start time of the cheapest period and the corresponding cost.
+        """
+        
         # Check if the price_resampled DataFrame is empty
-        print (self.price_resampled)
+        # print (self.price_resampled)
         if self.price_resampled.empty:
             print("No future price data available.")
             return None, None
+        
+        # Calculate the time difference in seconds (or another appropriate unit)
+        time_diff_seconds = int((self.price_resampled.index[0] - self.energy_resampled.index[0]).total_seconds())
+
+        # Shift the energy_resampled DataFrame by the calculated number of seconds
+        self.energy_resampled = self.energy_resampled.shift(periods=time_diff_seconds, freq='S')
+
+        # The above code is assigning the value of `self.price_resampled` to the variable `prices`.
+        prices = self.price_resampled
+        # keep oly the prices within the time frame that the machine should run 
+        if end_time is not None:
+            prices = prices[prices.index < pd.to_datetime(end_time)]
+      
+
 
         min_cost = float('inf')
         cheapest_start = None
 
-        # Ensure that there are at least two data points to calculate the total minutes
-        if len(self.price_resampled.index) < 2:
-            print("Insufficient data for analysis.")
+        # Ensure that there are enough data points to calculate 
+        total_minutes = int((prices.index[-1] - prices.index[0]).total_seconds() / 60)
+        total_minutes -= self.profile_duration
+        if total_minutes < 0:
             return None, None
-
-        total_minutes = int((self.price_resampled.index[-1] - self.price_resampled.index[0]).total_seconds() / 60)
+        
         for start_minute in range(total_minutes):
             total_cost = self.calculate_cost(start_minute)
+            # ic(f'{prices.index[0]+timedelta(minutes=start_minute)}: {total_cost}')
+
             if total_cost < min_cost:
                 min_cost = total_cost
                 cheapest_start = start_minute
 
         if cheapest_start is not None:
-            cheapest_start_time = self.price_resampled.index[0] + pd.Timedelta(minutes=cheapest_start)
+            cheapest_start_time = prices.index[0] + pd.Timedelta(minutes=cheapest_start)
             return cheapest_start_time, min_cost
 
         return None, None
 
+
+string_prices = '[{"start_time": "2023-12-25T23:00:00+00:00", "end_time": "2023-12-26T00:00:00+00:00", "price_ct_per_kwh": 17.424}, {"start_time": "2023-12-26T00:00:00+00:00", "end_time": "2023-12-26T01:00:00+00:00", "price_ct_per_kwh": 17.42158}, {"start_time": "2023-12-26T01:00:00+00:00", "end_time": "2023-12-26T02:00:00+00:00", "price_ct_per_kwh": 17.40706}, {"start_time": "2023-12-26T02:00:00+00:00", "end_time": "2023-12-26T03:00:00+00:00", "price_ct_per_kwh": 17.08157}, {"start_time": "2023-12-26T03:00:00+00:00", "end_time": "2023-12-26T04:00:00+00:00", "price_ct_per_kwh": 16.964199999999998}, {"start_time": "2023-12-26T04:00:00+00:00", "end_time": "2023-12-26T05:00:00+00:00", "price_ct_per_kwh": 17.20015}, {"start_time": "2023-12-26T05:00:00+00:00", "end_time": "2023-12-26T06:00:00+00:00", "price_ct_per_kwh": 17.424}, {"start_time": "2023-12-26T06:00:00+00:00", "end_time": "2023-12-26T07:00:00+00:00", "price_ct_per_kwh": 17.62002}, {"start_time": "2023-12-26T07:00:00+00:00", "end_time": "2023-12-26T08:00:00+00:00", "price_ct_per_kwh": 22.04741}, {"start_time": "2023-12-26T08:00:00+00:00", "end_time": "2023-12-26T09:00:00+00:00", "price_ct_per_kwh": 23.6797}, {"start_time": "2023-12-26T09:00:00+00:00", "end_time": "2023-12-26T10:00:00+00:00", "price_ct_per_kwh": 23.33848}, {"start_time": "2023-12-26T10:00:00+00:00", "end_time": "2023-12-26T11:00:00+00:00", "price_ct_per_kwh": 20.45384}, {"start_time": "2023-12-26T11:00:00+00:00", "end_time": "2023-12-26T12:00:00+00:00", "price_ct_per_kwh": 18.634}, {"start_time": "2023-12-26T12:00:00+00:00", "end_time": "2023-12-26T13:00:00+00:00", "price_ct_per_kwh": 17.75433}, {"start_time": "2023-12-26T13:00:00+00:00", "end_time": "2023-12-26T14:00:00+00:00", "price_ct_per_kwh": 22.2761}, {"start_time": "2023-12-26T14:00:00+00:00", "end_time": "2023-12-26T15:00:00+00:00", "price_ct_per_kwh": 26.4022}, {"start_time": "2023-12-26T15:00:00+00:00", "end_time": "2023-12-26T16:00:00+00:00", "price_ct_per_kwh": 28.543900000000004}, {"start_time": "2023-12-26T16:00:00+00:00", "end_time": "2023-12-26T17:00:00+00:00", "price_ct_per_kwh": 31.1938}, {"start_time": "2023-12-26T17:00:00+00:00", "end_time": "2023-12-26T18:00:00+00:00", "price_ct_per_kwh": 33.153999999999996}, {"start_time": "2023-12-26T18:00:00+00:00", "end_time": "2023-12-26T19:00:00+00:00", "price_ct_per_kwh": 33.033}, {"start_time": "2023-12-26T19:00:00+00:00", "end_time": "2023-12-26T20:00:00+00:00", "price_ct_per_kwh": 31.2059}, {"start_time": "2023-12-26T20:00:00+00:00", "end_time": "2023-12-26T21:00:00+00:00", "price_ct_per_kwh": 27.4791}, {"start_time": "2023-12-26T21:00:00+00:00", "end_time": "2023-12-26T22:00:00+00:00", "price_ct_per_kwh": 29.185200000000002}, {"start_time": "2023-12-26T22:00:00+00:00", "end_time": "2023-12-26T23:00:00+00:00", "price_ct_per_kwh": 27.708999999999996}, {"start_time": "2023-12-26T23:00:00+00:00", "end_time": "2023-12-27T00:00:00+00:00", "price_ct_per_kwh": 28.303109999999997}, {"start_time": "2023-12-27T00:00:00+00:00", "end_time": "2023-12-27T01:00:00+00:00", "price_ct_per_kwh": 27.0072}, {"start_time": "2023-12-27T01:00:00+00:00", "end_time": "2023-12-27T02:00:00+00:00", "price_ct_per_kwh": 24.39723}, {"start_time": "2023-12-27T02:00:00+00:00", "end_time": "2023-12-27T03:00:00+00:00", "price_ct_per_kwh": 23.7039}, {"start_time": "2023-12-27T03:00:00+00:00", "end_time": "2023-12-27T04:00:00+00:00", "price_ct_per_kwh": 23.477629999999998}, {"start_time": "2023-12-27T04:00:00+00:00", "end_time": "2023-12-27T05:00:00+00:00", "price_ct_per_kwh": 24.16491}, {"start_time": "2023-12-27T05:00:00+00:00", "end_time": "2023-12-27T06:00:00+00:00", "price_ct_per_kwh": 25.296259999999997}, {"start_time": "2023-12-27T06:00:00+00:00", "end_time": "2023-12-27T07:00:00+00:00", "price_ct_per_kwh": 26.81965}, {"start_time": "2023-12-27T07:00:00+00:00", "end_time": "2023-12-27T08:00:00+00:00", "price_ct_per_kwh": 27.43796}, {"start_time": "2023-12-27T08:00:00+00:00", "end_time": "2023-12-27T09:00:00+00:00", "price_ct_per_kwh": 27.16934}, {"start_time": "2023-12-27T09:00:00+00:00", "end_time": "2023-12-27T10:00:00+00:00", "price_ct_per_kwh": 26.485689999999998}, {"start_time": "2023-12-27T10:00:00+00:00", "end_time": "2023-12-27T11:00:00+00:00", "price_ct_per_kwh": 26.46391}, {"start_time": "2023-12-27T11:00:00+00:00", "end_time": "2023-12-27T12:00:00+00:00", "price_ct_per_kwh": 26.35259}, {"start_time": "2023-12-27T12:00:00+00:00", "end_time": "2023-12-27T13:00:00+00:00", "price_ct_per_kwh": 26.136}, {"start_time": "2023-12-27T13:00:00+00:00", "end_time": "2023-12-27T14:00:00+00:00", "price_ct_per_kwh": 26.3417}, {"start_time": "2023-12-27T14:00:00+00:00", "end_time": "2023-12-27T15:00:00+00:00", "price_ct_per_kwh": 27.104}, {"start_time": "2023-12-27T15:00:00+00:00", "end_time": "2023-12-27T16:00:00+00:00", "price_ct_per_kwh": 27.00236}, {"start_time": "2023-12-27T16:00:00+00:00", "end_time": "2023-12-27T17:00:00+00:00", "price_ct_per_kwh": 27.149980000000003}, {"start_time": "2023-12-27T17:00:00+00:00", "end_time": "2023-12-27T18:00:00+00:00", "price_ct_per_kwh": 26.42398}, {"start_time": "2023-12-27T18:00:00+00:00", "end_time": "2023-12-27T19:00:00+00:00", "price_ct_per_kwh": 25.2769}, {"start_time": "2023-12-27T19:00:00+00:00", "end_time": "2023-12-27T20:00:00+00:00", "price_ct_per_kwh": 24.04633}, {"start_time": "2023-12-27T20:00:00+00:00", "end_time": "2023-12-27T21:00:00+00:00", "price_ct_per_kwh": 20.41754}, {"start_time": "2023-12-27T21:00:00+00:00", "end_time": "2023-12-27T22:00:00+00:00", "price_ct_per_kwh": 19.47979}, {"start_time": "2023-12-27T22:00:00+00:00", "end_time": "2023-12-27T23:00:00+00:00", "price_ct_per_kwh": 17.4482}]'
 
 if __name__ == '__main__':
     # Usage example
     start_load = time.time()
     appliance_profile = load_csv('profile.csv')
     prices = load_json_from_file('prices.json')
+    prices = load_json_from_string(string_prices)
     print(f'Loading files time: {time.time() - start_load}')
 
     start_class = time.time()
     analyzer = EnergyPriceAnalyzer(appliance_profile, prices)
     print(f'class init time: {time.time() - start_class}')
 
+    # Get today's date and time in UTC
+    now_utc = datetime.now(pytz.utc)
+
+    # Get tomorrow's date
+    tomorrow = now_utc + timedelta(days=1)
+
+    # Set the time to 9 AM UTC on tomorrow's date
+    tomorrow_9am_utc = tomorrow.replace(hour=9, minute=0, second=0, microsecond=0)
+
+    # Ensure the result is timezone-aware and in UTC
+    tomorrow_9am_utc = tomorrow_9am_utc.astimezone(pytz.utc)
+
     start_calculation = time.time()
-    start_time, min_cost = analyzer.find_cheapest_period()
+    start_time, min_cost = analyzer.find_cheapest_period(end_time=tomorrow_9am_utc)
     print(f'calculation time: {time.time() - start_calculation}')
 
     if start_time:
