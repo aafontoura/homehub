@@ -22,40 +22,67 @@ class DishwasherControl(hass.Hass):
     SENSOR_DISHWASHER_CONNECTED = "binary_sensor.011040519583042054_connected"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
+    HELPER_NEXT_CYCLE = "input_datetime.next_dishwasher_cycle"
+    HELPER_NEXT_CYCLE_IN = "input_number.dishwasher_starts_in"
     ENABLE_LOG = False
     
     def initialize(self):
         
         self.program_timer = None
-               
+        self.start_time = None
+        
+        self.set_value(self.HELPER_NEXT_CYCLE_IN,-1)
+        self.set_value(self.HELPER_COST_INPUT, -99)
+              
         
         prices = str(self.get_state("sensor.epex_spot_data_net_price_2", attribute="data"))
         prices = prices.replace("'", '"')
         self.energy = EnergyPriceAnalyzer(load_csv(get_data_file_path("data/dishwasher_eco_profile.csv")),load_json_from_string(prices))
         
         if self.is_dishwasher_ready():
-             self.program_dishwasher()
-            
+             self.program_dishwasher()            
         
 
         self.listen_state(self.disch_washer_ready_cb, "sensor.cube_action", new="slide")
         self.listen_state(self.disch_washer_ready_cb, "binary_sensor.011040519583042054_bsh_common_status_doorstate", new="off")
         
+        self.log(self.get_state(self.HELPER_NEXT_CYCLE))
+        self.log(self.get_state(self.HELPER_COST_INPUT))
         
+        self.update_countdown()
+        
+        
+        
+    def update_countdown(self, cb_args = None):
+        self.log("updating countdown")
+        if self.start_time is None or datetime.now(pytz.utc) > self.start_time:
+            self.log("Not programmed")
+            self.set_value(self.HELPER_NEXT_CYCLE_IN,-1)
+            
+        else:
+            current_time = datetime.now(pytz.utc)
+            time_difference = self.start_time - current_time
+            self.log(time_difference.total_seconds())
+            self.set_value(self.HELPER_NEXT_CYCLE_IN,round(time_difference.total_seconds()/60,ndigits=0))
+            
+        self.run_in(self.update_countdown,60)
+            
 
     def program_dishwasher(self):
         self.log("Programming...")
         if self.program_timer is not None:
             self.cancel_timer(self.program_timer)
         
-        start_time, cost = self.calculate_start_time()
+        self.start_time, cost = self.calculate_start_time()
         
         current_time = datetime.now(pytz.utc)
-        time_difference = start_time - current_time
+        time_difference = self.start_time - current_time
         
         self.program_timer = self.run_in(self.start_dishwasher, time_difference.total_seconds())
-        self.set_value(self.HELPER_COST_INPUT, cost/100)
-        self.log(f'Dishwasher will start in {time_difference.total_seconds():.0f} seconds ({start_time}) \nCost: {cost}')
+        self.set_value(self.HELPER_COST_INPUT, round(cost/100, ndigits=4))
+        
+        
+        self.log(f'Dishwasher will start in {time_difference.total_seconds():.0f} seconds ({self.start_time}) \nCost: {cost}')
 
     def is_dishwasher_ready(self):
         remote_start = self.get_state(self.SENSOR_REMOTE_START)
