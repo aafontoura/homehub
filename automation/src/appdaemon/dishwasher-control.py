@@ -20,10 +20,12 @@ class DishwasherControl(hass.Hass):
     SENSOR_READY = "sensor.011040519583042054_bsh_common_status_operationstate"
     SENSOR_DISHWASHER_DOOR = "binary_sensor.011040519583042054_bsh_common_status_doorstate"
     SENSOR_DISHWASHER_CONNECTED = "binary_sensor.011040519583042054_connected"
+    SELECT_PROGRAM = "select.011040519583042054_programs"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
     HELPER_NEXT_CYCLE = "input_datetime.next_dishwasher_cycle"
     HELPER_NEXT_CYCLE_IN = "input_number.dishwasher_starts_in"
+    DEVICE_ID = "71a8e29be99faa5d4ff021056e54324d"
     ENABLE_LOG = False
     
     def initialize(self):
@@ -46,8 +48,6 @@ class DishwasherControl(hass.Hass):
         self.listen_state(self.disch_washer_ready_cb, "sensor.cube_action", new="slide")
         self.listen_state(self.disch_washer_ready_cb, "binary_sensor.011040519583042054_bsh_common_status_doorstate", new="off")
         
-        self.log(self.get_state(self.HELPER_NEXT_CYCLE))
-        self.log(self.get_state(self.HELPER_COST_INPUT))
         
         self.update_countdown()
         
@@ -56,7 +56,6 @@ class DishwasherControl(hass.Hass):
     def update_countdown(self, cb_args = None):
         self.log("updating countdown")
         if self.start_time is None or datetime.now(pytz.utc) > self.start_time:
-            self.log("Not programmed")
             self.set_value(self.HELPER_NEXT_CYCLE_IN,-1)
             
         else:
@@ -77,7 +76,6 @@ class DishwasherControl(hass.Hass):
         
         current_time = datetime.now(pytz.utc)
         time_difference = self.start_time - current_time
-        
         self.program_timer = self.run_in(self.start_dishwasher, time_difference.total_seconds())
         self.set_value(self.HELPER_COST_INPUT, round(cost/100, ndigits=4))
         
@@ -138,11 +136,20 @@ class DishwasherControl(hass.Hass):
         
         if self.is_dishwasher_ready():
              self.program_dishwasher()
+        else:
+            self.cancel_timer(self.program_timer)
+            self.program_timer = None
+            self.start_time = None
+            
         
 
-    def start_dishwasher(self,  cb_args):
+    def start_dishwasher(self,  cb_args=None):
         self.log("Starting dishwasher")
-        self.call_service("button.press", entity=self.BUTTON_START)
+        # self.call_service("button/press", entity=self.BUTTON_START)
+        self.call_service("home_connect_alt/start_program", device_id=self.DEVICE_ID,
+                          program_key="Dishcare.Dishwasher.Program.Eco50"
+                          )
+        
 
 
 
