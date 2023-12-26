@@ -56,6 +56,7 @@ class VentilationAutomation(AutomationPubSub):
 
     def set_ventilation(self, power_percentage : int):
         if power_percentage <= 100 and power_percentage > 0:
+            logging.info(f'Setting ventilation to {power_percentage}% - itho/cmd - {str(int(power_percentage*2.55))}')
             self.client.publish("itho/cmd",str(int(power_percentage*2.55)))
         
 
