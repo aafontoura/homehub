@@ -20,6 +20,7 @@ class DishwasherControl(hass.Hass):
     SENSOR_READY = "sensor.011040519583042054_bsh_common_status_operationstate"
     SENSOR_DISHWASHER_DOOR = "binary_sensor.011040519583042054_bsh_common_status_doorstate"
     SENSOR_DISHWASHER_CONNECTED = "binary_sensor.011040519583042054_connected"
+    SENSOR_OPERSTATE = "sensor.011040519583042054_bsh_common_status_operationstate"
     SELECT_PROGRAM = "select.011040519583042054_programs"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
@@ -45,42 +46,21 @@ class DishwasherControl(hass.Hass):
              self.program_dishwasher()            
         
 
-        self.listen_state(self.disch_washer_ready_cb, "sensor.cube_action", new="slide")
         self.listen_state(self.disch_washer_ready_cb, "binary_sensor.011040519583042054_bsh_common_status_doorstate", new="off")
         
-        
-        self.update_countdown()
-        
-        
-        
-    def update_countdown(self, cb_args = None):
-        self.log("updating countdown")
-        if self.start_time is None or datetime.now(pytz.utc) > self.start_time:
-            self.set_value(self.HELPER_NEXT_CYCLE_IN,-1)
-            
-        else:
-            current_time = datetime.now(pytz.utc)
-            time_difference = self.start_time - current_time
-            self.log(time_difference.total_seconds())
-            self.set_value(self.HELPER_NEXT_CYCLE_IN,round(time_difference.total_seconds()/60,ndigits=0))
-            
-        self.run_in(self.update_countdown,60)
             
 
     def program_dishwasher(self):
         self.log("Programming...")
-        if self.program_timer is not None:
-            self.cancel_timer(self.program_timer)
         
-        self.start_time, cost = self.calculate_start_time()
+        start_time, cost = self.calculate_start_time()
+        self.start_dishwasher(start_time)
         
-        current_time = datetime.now(pytz.utc)
-        time_difference = self.start_time - current_time
-        self.program_timer = self.run_in(self.start_dishwasher, time_difference.total_seconds())
+        
         self.set_value(self.HELPER_COST_INPUT, round(cost/100, ndigits=4))
         
         
-        self.log(f'Dishwasher will start in {time_difference.total_seconds():.0f} seconds ({self.start_time}) \nCost: {cost}')
+        self.log(f'Dishwasher will start at ({start_time}) \nCost: {cost}')
 
     def is_dishwasher_ready(self):
         remote_start = self.get_state(self.SENSOR_REMOTE_START)
@@ -100,7 +80,7 @@ class DishwasherControl(hass.Hass):
             self.log("Dishwasher is ready to start.")
             return True
         else:
-            self.log("Dishwasher is NOT ready to start.")
+            self.log(f'Dishwasher is NOT ready to start: {self.get_state(self.SENSOR_OPERSTATE)}')
             return False
         
     def calculate_start_time(self):
@@ -136,19 +116,21 @@ class DishwasherControl(hass.Hass):
         
         if self.is_dishwasher_ready():
              self.program_dishwasher()
-        else:
-            self.cancel_timer(self.program_timer)
-            self.program_timer = None
-            self.start_time = None
             
         
 
-    def start_dishwasher(self,  cb_args=None):
+    def start_dishwasher(self,  start_time):
         self.log("Starting dishwasher")
-        # self.call_service("button/press", entity=self.BUTTON_START)
-        self.call_service("home_connect_alt/start_program", device_id=self.DEVICE_ID,
-                          program_key="Dishcare.Dishwasher.Program.Eco50"
+        
+        current_time = datetime.now(pytz.utc)
+        time_difference = start_time - current_time
+        self.log(time_difference.total_seconds())
+        self.call_service("home_connect_alt/start_program", device_id=self.DEVICE_ID, validate="true",
+                          program_key="Dishcare.Dishwasher.Program.Eco50",
+                            options=[{"key":"BSH.Common.Option.StartInRelative","value":int(time_difference.total_seconds())}]
                           )
+        
+        
         
 
 
