@@ -1,0 +1,16 @@
+version: '3.7'
+services:
+  appdaemon:
+    image: acockburn/appdaemon:latest
+    env_file:
+      - .env      
+    environment:
+      # HA_URL: "http://homeassistant:8123"
+      TOKEN: ${HA_TOKEN}
+    ports:
+      - 5050:5050  
+    # restart: unles
+    volumes:
+      - ~/appdata/appdaemon:/conf
+      - /etc/localtime:/etc/localtime:ro
+
