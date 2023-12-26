@@ -22,7 +22,7 @@ class DishwasherControl(hass.Hass):
     SENSOR_DISHWASHER_CONNECTED = "binary_sensor.011040519583042054_connected"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
-    ENABLE_LOG = True
+    ENABLE_LOG = False
     
     def initialize(self):
         
