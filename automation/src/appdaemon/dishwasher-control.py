@@ -24,19 +24,20 @@ class DishwasherControl(hass.Hass):
     SELECT_PROGRAM = "select.011040519583042054_programs"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
+    HELPER_SAVINGS = "input_number.dishwasher_savings"    
     HELPER_NEXT_CYCLE = "input_datetime.next_dishwasher_cycle"
     HELPER_NEXT_CYCLE_IN = "input_number.dishwasher_starts_in"
     DEVICE_ID = "71a8e29be99faa5d4ff021056e54324d"
-    ENABLE_LOG = False
+    ENABLE_LOG = True
+    OPERSTATE_FINISHED = "BSH.Common.EnumType.OperationState.Finished"
+    OPERSTATE_READY = "BSH.Common.EnumType.OperationState.Ready"
     
     def initialize(self):
         
         self.program_timer = None
         self.start_time = None
         
-        self.set_value(self.HELPER_NEXT_CYCLE_IN,-1)
-        self.set_value(self.HELPER_COST_INPUT, -99)
-              
+        self.log(self.get_state(self.HELPER_SAVINGS))
         
         prices = str(self.get_state("sensor.epex_spot_data_net_price_2", attribute="data"))
         prices = prices.replace("'", '"')
@@ -46,21 +47,25 @@ class DishwasherControl(hass.Hass):
              self.program_dishwasher()            
         
 
-        self.listen_state(self.disch_washer_ready_cb, "binary_sensor.011040519583042054_bsh_common_status_doorstate", new="off")
+        self.listen_state(self.dishwasher_ready_cb, self.SENSOR_DISHWASHER_DOOR, new="off")
+        self.listen_state(self.dishwasher_finished_cb, self.SENSOR_OPERSTATE, new=self.OPERSTATE_FINISHED)
         
-            
+    
+    def dishwasher_finished_cb(self, entity, attribute, old, new, kwargs):
+        self.log("Program finished")
+        savings = self.get_state(self.HELPER_SAVINGS)
+        cost = self.get_state(self.HELPER_COST_INPUT)
+        self.set_value(self.HELPER_SAVINGS, cost/100 + savings)
 
     def program_dishwasher(self):
         self.log("Programming...")
         
-        start_time, cost = self.calculate_start_time()
-        self.start_dishwasher(start_time)
+        start_time, self.cost, self.max_cost = self.calculate_start_time()
+        self.start_dishwasher(start_time)        
         
+        self.set_value(self.HELPER_COST_INPUT, round(self.cost/100, ndigits=4))
         
-        self.set_value(self.HELPER_COST_INPUT, round(cost/100, ndigits=4))
-        
-        
-        self.log(f'Dishwasher will start at ({start_time}) \nCost: {cost}')
+        self.log(f'Dishwasher will start at ({start_time}) \nCost: {self.cost}')
 
     def is_dishwasher_ready(self):
         remote_start = self.get_state(self.SENSOR_REMOTE_START)
@@ -81,6 +86,9 @@ class DishwasherControl(hass.Hass):
             return True
         else:
             self.log(f'Dishwasher is NOT ready to start: {self.get_state(self.SENSOR_OPERSTATE)}')
+            if self.get_state(self.SENSOR_OPERSTATE) == "BSH.Common.EnumType.OperationState.DelayedStart":                               
+                self.log(f'Program will start in {self.get_state("sensor.011040519583042054_bsh_common_option_startinrelative")}')
+                
             return False
         
     def calculate_start_time(self):
@@ -103,15 +111,20 @@ class DishwasherControl(hass.Hass):
         # Ensure the result is timezone-aware and in UTC
         tomorrow_8am_utc = tomorrow_8am_utc.astimezone(pytz.utc)
         
+        start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
+    
+        if now_utc > start_time:
+            start_time = None
         
-        return self.energy.find_cheapest_period(end_time=tomorrow_8am_utc) 
+        
+        return self.energy.find_cheapest_period(start_time=start_time, end_time=tomorrow_8am_utc) 
         
         
 
     def terminate(self):
         self.log("Terminating") 
     
-    def disch_washer_ready_cb(self, entity, attribute, old, new, kwargs):
+    def dishwasher_ready_cb(self, entity, attribute, old, new, kwargs):
         self.log("Callback")
         
         if self.is_dishwasher_ready():
@@ -124,8 +137,11 @@ class DishwasherControl(hass.Hass):
         
         current_time = datetime.now(pytz.utc)
         time_difference = start_time - current_time
+        if self.ENABLE_LOG:
+            self.log(f'start_dishwasher({start_time}) -> Diff: {time_difference}')
+            self.log(f'Starting program: "key":"BSH.Common.Option.StartInRelative","value":{int(time_difference.total_seconds())}]')
         self.log(time_difference.total_seconds())
-        self.call_service("home_connect_alt/start_program", device_id=self.DEVICE_ID, validate="true",
+        self.call_service("home_connect_alt/start_program", device_id=self.DEVICE_ID,
                           program_key="Dishcare.Dishwasher.Program.Eco50",
                             options=[{"key":"BSH.Common.Option.StartInRelative","value":int(time_difference.total_seconds())}]
                           )

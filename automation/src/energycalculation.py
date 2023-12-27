@@ -2,7 +2,7 @@ import pandas as pd
 import json, pytz
 import time
 from datetime import datetime, timedelta
-from icecream import ic
+# from icecream import ic
 
 def load_csv(csv_file):
     """
@@ -136,7 +136,7 @@ class EnergyPriceAnalyzer:
         result = aligned_profile['Power'] / 1000 * aligned_prices['price_ct_per_kwh'] / (3600 / int(self.min_interval.total_seconds()))
         return result.sum()
 
-    def find_cheapest_period(self, end_time = None):
+    def find_cheapest_period(self, start_time = None, end_time = None):
         """
         Find the cheapest period to run the appliance within a specified timeframe.
 
@@ -151,7 +151,7 @@ class EnergyPriceAnalyzer:
         # print (self.price_resampled)
         if self.price_resampled.empty:
             print("No future price data available.")
-            return None, None
+            return None, None, None
         
         # Calculate the time difference in seconds (or another appropriate unit)
         time_diff_seconds = int((self.price_resampled.index[0] - self.energy_resampled.index[0]).total_seconds())
@@ -164,17 +164,21 @@ class EnergyPriceAnalyzer:
         # keep oly the prices within the time frame that the machine should run 
         if end_time is not None:
             prices = prices[prices.index < pd.to_datetime(end_time)]
+            
+        if start_time is not None:
+            prices = prices[prices.index > pd.to_datetime(start_time)]
       
 
 
         min_cost = float('inf')
+        max_cost = float('-inf')
         cheapest_start = None
 
         # Ensure that there are enough data points to calculate 
         total_minutes = int((prices.index[-1] - prices.index[0]).total_seconds() / 60)
         total_minutes -= self.profile_duration
         if total_minutes < 0:
-            return None, None
+            return None, None, None
         
         for start_minute in range(total_minutes):
             total_cost = self.calculate_cost(start_minute)
@@ -183,21 +187,24 @@ class EnergyPriceAnalyzer:
             if total_cost < min_cost:
                 min_cost = total_cost
                 cheapest_start = start_minute
+                
+            if total_cost > max_cost:
+                max_cost = total_cost
 
         if cheapest_start is not None:
             cheapest_start_time = prices.index[0] + pd.Timedelta(minutes=cheapest_start)
-            return cheapest_start_time, min_cost
+            return cheapest_start_time, min_cost, max_cost
 
-        return None, None
+        return None, None, None
 
 
-string_prices = '[{"start_time": "2023-12-25T23:00:00+00:00", "end_time": "2023-12-26T00:00:00+00:00", "price_ct_per_kwh": 17.424}, {"start_time": "2023-12-26T00:00:00+00:00", "end_time": "2023-12-26T01:00:00+00:00", "price_ct_per_kwh": 17.42158}, {"start_time": "2023-12-26T01:00:00+00:00", "end_time": "2023-12-26T02:00:00+00:00", "price_ct_per_kwh": 17.40706}, {"start_time": "2023-12-26T02:00:00+00:00", "end_time": "2023-12-26T03:00:00+00:00", "price_ct_per_kwh": 17.08157}, {"start_time": "2023-12-26T03:00:00+00:00", "end_time": "2023-12-26T04:00:00+00:00", "price_ct_per_kwh": 16.964199999999998}, {"start_time": "2023-12-26T04:00:00+00:00", "end_time": "2023-12-26T05:00:00+00:00", "price_ct_per_kwh": 17.20015}, {"start_time": "2023-12-26T05:00:00+00:00", "end_time": "2023-12-26T06:00:00+00:00", "price_ct_per_kwh": 17.424}, {"start_time": "2023-12-26T06:00:00+00:00", "end_time": "2023-12-26T07:00:00+00:00", "price_ct_per_kwh": 17.62002}, {"start_time": "2023-12-26T07:00:00+00:00", "end_time": "2023-12-26T08:00:00+00:00", "price_ct_per_kwh": 22.04741}, {"start_time": "2023-12-26T08:00:00+00:00", "end_time": "2023-12-26T09:00:00+00:00", "price_ct_per_kwh": 23.6797}, {"start_time": "2023-12-26T09:00:00+00:00", "end_time": "2023-12-26T10:00:00+00:00", "price_ct_per_kwh": 23.33848}, {"start_time": "2023-12-26T10:00:00+00:00", "end_time": "2023-12-26T11:00:00+00:00", "price_ct_per_kwh": 20.45384}, {"start_time": "2023-12-26T11:00:00+00:00", "end_time": "2023-12-26T12:00:00+00:00", "price_ct_per_kwh": 18.634}, {"start_time": "2023-12-26T12:00:00+00:00", "end_time": "2023-12-26T13:00:00+00:00", "price_ct_per_kwh": 17.75433}, {"start_time": "2023-12-26T13:00:00+00:00", "end_time": "2023-12-26T14:00:00+00:00", "price_ct_per_kwh": 22.2761}, {"start_time": "2023-12-26T14:00:00+00:00", "end_time": "2023-12-26T15:00:00+00:00", "price_ct_per_kwh": 26.4022}, {"start_time": "2023-12-26T15:00:00+00:00", "end_time": "2023-12-26T16:00:00+00:00", "price_ct_per_kwh": 28.543900000000004}, {"start_time": "2023-12-26T16:00:00+00:00", "end_time": "2023-12-26T17:00:00+00:00", "price_ct_per_kwh": 31.1938}, {"start_time": "2023-12-26T17:00:00+00:00", "end_time": "2023-12-26T18:00:00+00:00", "price_ct_per_kwh": 33.153999999999996}, {"start_time": "2023-12-26T18:00:00+00:00", "end_time": "2023-12-26T19:00:00+00:00", "price_ct_per_kwh": 33.033}, {"start_time": "2023-12-26T19:00:00+00:00", "end_time": "2023-12-26T20:00:00+00:00", "price_ct_per_kwh": 31.2059}, {"start_time": "2023-12-26T20:00:00+00:00", "end_time": "2023-12-26T21:00:00+00:00", "price_ct_per_kwh": 27.4791}, {"start_time": "2023-12-26T21:00:00+00:00", "end_time": "2023-12-26T22:00:00+00:00", "price_ct_per_kwh": 29.185200000000002}, {"start_time": "2023-12-26T22:00:00+00:00", "end_time": "2023-12-26T23:00:00+00:00", "price_ct_per_kwh": 27.708999999999996}, {"start_time": "2023-12-26T23:00:00+00:00", "end_time": "2023-12-27T00:00:00+00:00", "price_ct_per_kwh": 28.303109999999997}, {"start_time": "2023-12-27T00:00:00+00:00", "end_time": "2023-12-27T01:00:00+00:00", "price_ct_per_kwh": 27.0072}, {"start_time": "2023-12-27T01:00:00+00:00", "end_time": "2023-12-27T02:00:00+00:00", "price_ct_per_kwh": 24.39723}, {"start_time": "2023-12-27T02:00:00+00:00", "end_time": "2023-12-27T03:00:00+00:00", "price_ct_per_kwh": 23.7039}, {"start_time": "2023-12-27T03:00:00+00:00", "end_time": "2023-12-27T04:00:00+00:00", "price_ct_per_kwh": 23.477629999999998}, {"start_time": "2023-12-27T04:00:00+00:00", "end_time": "2023-12-27T05:00:00+00:00", "price_ct_per_kwh": 24.16491}, {"start_time": "2023-12-27T05:00:00+00:00", "end_time": "2023-12-27T06:00:00+00:00", "price_ct_per_kwh": 25.296259999999997}, {"start_time": "2023-12-27T06:00:00+00:00", "end_time": "2023-12-27T07:00:00+00:00", "price_ct_per_kwh": 26.81965}, {"start_time": "2023-12-27T07:00:00+00:00", "end_time": "2023-12-27T08:00:00+00:00", "price_ct_per_kwh": 27.43796}, {"start_time": "2023-12-27T08:00:00+00:00", "end_time": "2023-12-27T09:00:00+00:00", "price_ct_per_kwh": 27.16934}, {"start_time": "2023-12-27T09:00:00+00:00", "end_time": "2023-12-27T10:00:00+00:00", "price_ct_per_kwh": 26.485689999999998}, {"start_time": "2023-12-27T10:00:00+00:00", "end_time": "2023-12-27T11:00:00+00:00", "price_ct_per_kwh": 26.46391}, {"start_time": "2023-12-27T11:00:00+00:00", "end_time": "2023-12-27T12:00:00+00:00", "price_ct_per_kwh": 26.35259}, {"start_time": "2023-12-27T12:00:00+00:00", "end_time": "2023-12-27T13:00:00+00:00", "price_ct_per_kwh": 26.136}, {"start_time": "2023-12-27T13:00:00+00:00", "end_time": "2023-12-27T14:00:00+00:00", "price_ct_per_kwh": 26.3417}, {"start_time": "2023-12-27T14:00:00+00:00", "end_time": "2023-12-27T15:00:00+00:00", "price_ct_per_kwh": 27.104}, {"start_time": "2023-12-27T15:00:00+00:00", "end_time": "2023-12-27T16:00:00+00:00", "price_ct_per_kwh": 27.00236}, {"start_time": "2023-12-27T16:00:00+00:00", "end_time": "2023-12-27T17:00:00+00:00", "price_ct_per_kwh": 27.149980000000003}, {"start_time": "2023-12-27T17:00:00+00:00", "end_time": "2023-12-27T18:00:00+00:00", "price_ct_per_kwh": 26.42398}, {"start_time": "2023-12-27T18:00:00+00:00", "end_time": "2023-12-27T19:00:00+00:00", "price_ct_per_kwh": 25.2769}, {"start_time": "2023-12-27T19:00:00+00:00", "end_time": "2023-12-27T20:00:00+00:00", "price_ct_per_kwh": 24.04633}, {"start_time": "2023-12-27T20:00:00+00:00", "end_time": "2023-12-27T21:00:00+00:00", "price_ct_per_kwh": 20.41754}, {"start_time": "2023-12-27T21:00:00+00:00", "end_time": "2023-12-27T22:00:00+00:00", "price_ct_per_kwh": 19.47979}, {"start_time": "2023-12-27T22:00:00+00:00", "end_time": "2023-12-27T23:00:00+00:00", "price_ct_per_kwh": 17.4482}]'
+string_prices = '[{"start_time": "2023-12-26T23:00:00+00:00", "end_time": "2023-12-27T00:00:00+00:00", "price_ct_per_kwh": 28.303109999999997}, {"start_time": "2023-12-27T00:00:00+00:00", "end_time": "2023-12-27T01:00:00+00:00", "price_ct_per_kwh": 27.0072}, {"start_time": "2023-12-27T01:00:00+00:00", "end_time": "2023-12-27T02:00:00+00:00", "price_ct_per_kwh": 24.39723}, {"start_time": "2023-12-27T02:00:00+00:00", "end_time": "2023-12-27T03:00:00+00:00", "price_ct_per_kwh": 23.7039}, {"start_time": "2023-12-27T03:00:00+00:00", "end_time": "2023-12-27T04:00:00+00:00", "price_ct_per_kwh": 23.477629999999998}, {"start_time": "2023-12-27T04:00:00+00:00", "end_time": "2023-12-27T05:00:00+00:00", "price_ct_per_kwh": 24.16491}, {"start_time": "2023-12-27T05:00:00+00:00", "end_time": "2023-12-27T06:00:00+00:00", "price_ct_per_kwh": 25.296259999999997}, {"start_time": "2023-12-27T06:00:00+00:00", "end_time": "2023-12-27T07:00:00+00:00", "price_ct_per_kwh": 26.81965}, {"start_time": "2023-12-27T07:00:00+00:00", "end_time": "2023-12-27T08:00:00+00:00", "price_ct_per_kwh": 27.43796}, {"start_time": "2023-12-27T08:00:00+00:00", "end_time": "2023-12-27T09:00:00+00:00", "price_ct_per_kwh": 27.16934}, {"start_time": "2023-12-27T09:00:00+00:00", "end_time": "2023-12-27T10:00:00+00:00", "price_ct_per_kwh": 26.485689999999998}, {"start_time": "2023-12-27T10:00:00+00:00", "end_time": "2023-12-27T11:00:00+00:00", "price_ct_per_kwh": 26.46391}, {"start_time": "2023-12-27T11:00:00+00:00", "end_time": "2023-12-27T12:00:00+00:00", "price_ct_per_kwh": 26.35259}, {"start_time": "2023-12-27T12:00:00+00:00", "end_time": "2023-12-27T13:00:00+00:00", "price_ct_per_kwh": 26.136}, {"start_time": "2023-12-27T13:00:00+00:00", "end_time": "2023-12-27T14:00:00+00:00", "price_ct_per_kwh": 26.3417}, {"start_time": "2023-12-27T14:00:00+00:00", "end_time": "2023-12-27T15:00:00+00:00", "price_ct_per_kwh": 27.104}, {"start_time": "2023-12-27T15:00:00+00:00", "end_time": "2023-12-27T16:00:00+00:00", "price_ct_per_kwh": 27.00236}, {"start_time": "2023-12-27T16:00:00+00:00", "end_time": "2023-12-27T17:00:00+00:00", "price_ct_per_kwh": 27.149980000000003}, {"start_time": "2023-12-27T17:00:00+00:00", "end_time": "2023-12-27T18:00:00+00:00", "price_ct_per_kwh": 26.42398}, {"start_time": "2023-12-27T18:00:00+00:00", "end_time": "2023-12-27T19:00:00+00:00", "price_ct_per_kwh": 25.2769}, {"start_time": "2023-12-27T19:00:00+00:00", "end_time": "2023-12-27T20:00:00+00:00", "price_ct_per_kwh": 24.04633}, {"start_time": "2023-12-27T20:00:00+00:00", "end_time": "2023-12-27T21:00:00+00:00", "price_ct_per_kwh": 20.41754}, {"start_time": "2023-12-27T21:00:00+00:00", "end_time": "2023-12-27T22:00:00+00:00", "price_ct_per_kwh": 19.47979}, {"start_time": "2023-12-27T22:00:00+00:00", "end_time": "2023-12-27T23:00:00+00:00", "price_ct_per_kwh": 17.4482}, {"start_time": "2023-12-27T23:00:00+00:00", "end_time": "2023-12-28T00:00:00+00:00", "price_ct_per_kwh": 17.42158}, {"start_time": "2023-12-28T00:00:00+00:00", "end_time": "2023-12-28T01:00:00+00:00", "price_ct_per_kwh": 17.329620000000002}, {"start_time": "2023-12-28T01:00:00+00:00", "end_time": "2023-12-28T02:00:00+00:00", "price_ct_per_kwh": 17.25097}, {"start_time": "2023-12-28T02:00:00+00:00", "end_time": "2023-12-28T03:00:00+00:00", "price_ct_per_kwh": 17.25581}, {"start_time": "2023-12-28T03:00:00+00:00", "end_time": "2023-12-28T04:00:00+00:00", "price_ct_per_kwh": 17.189259999999997}, {"start_time": "2023-12-28T04:00:00+00:00", "end_time": "2023-12-28T05:00:00+00:00", "price_ct_per_kwh": 17.29816}, {"start_time": "2023-12-28T05:00:00+00:00", "end_time": "2023-12-28T06:00:00+00:00", "price_ct_per_kwh": 17.339299999999998}, {"start_time": "2023-12-28T06:00:00+00:00", "end_time": "2023-12-28T07:00:00+00:00", "price_ct_per_kwh": 19.367259999999998}, {"start_time": "2023-12-28T07:00:00+00:00", "end_time": "2023-12-28T08:00:00+00:00", "price_ct_per_kwh": 22.0462}, {"start_time": "2023-12-28T08:00:00+00:00", "end_time": "2023-12-28T09:00:00+00:00", "price_ct_per_kwh": 22.11759}, {"start_time": "2023-12-28T09:00:00+00:00", "end_time": "2023-12-28T10:00:00+00:00", "price_ct_per_kwh": 21.005599999999998}, {"start_time": "2023-12-28T10:00:00+00:00", "end_time": "2023-12-28T11:00:00+00:00", "price_ct_per_kwh": 21.64569}, {"start_time": "2023-12-28T11:00:00+00:00", "end_time": "2023-12-28T12:00:00+00:00", "price_ct_per_kwh": 18.833650000000002}, {"start_time": "2023-12-28T12:00:00+00:00", "end_time": "2023-12-28T13:00:00+00:00", "price_ct_per_kwh": 18.8034}, {"start_time": "2023-12-28T13:00:00+00:00", "end_time": "2023-12-28T14:00:00+00:00", "price_ct_per_kwh": 20.614769999999996}, {"start_time": "2023-12-28T14:00:00+00:00", "end_time": "2023-12-28T15:00:00+00:00", "price_ct_per_kwh": 23.561120000000003}, {"start_time": "2023-12-28T15:00:00+00:00", "end_time": "2023-12-28T16:00:00+00:00", "price_ct_per_kwh": 22.36927}, {"start_time": "2023-12-28T16:00:00+00:00", "end_time": "2023-12-28T17:00:00+00:00", "price_ct_per_kwh": 26.910400000000003}, {"start_time": "2023-12-28T17:00:00+00:00", "end_time": "2023-12-28T18:00:00+00:00", "price_ct_per_kwh": 26.910400000000003}, {"start_time": "2023-12-28T18:00:00+00:00", "end_time": "2023-12-28T19:00:00+00:00", "price_ct_per_kwh": 25.291420000000002}, {"start_time": "2023-12-28T19:00:00+00:00", "end_time": "2023-12-28T20:00:00+00:00", "price_ct_per_kwh": 25.2769}, {"start_time": "2023-12-28T20:00:00+00:00", "end_time": "2023-12-28T21:00:00+00:00", "price_ct_per_kwh": 23.958}, {"start_time": "2023-12-28T21:00:00+00:00", "end_time": "2023-12-28T22:00:00+00:00", "price_ct_per_kwh": 22.264}, {"start_time": "2023-12-28T22:00:00+00:00", "end_time": "2023-12-28T23:00:00+00:00", "price_ct_per_kwh": 17.666}]'
 
 if __name__ == '__main__':
     # Usage example
     start_load = time.time()
-    appliance_profile = load_csv('profile.csv')
-    prices = load_json_from_file('prices.json')
+    appliance_profile = load_csv('tests/data/test_profile.csv')
+    # prices = load_json_from_file('prices.json')
     prices = load_json_from_string(string_prices)
     print(f'Loading files time: {time.time() - start_load}')
 
@@ -213,15 +220,20 @@ if __name__ == '__main__':
 
     # Set the time to 9 AM UTC on tomorrow's date
     tomorrow_9am_utc = tomorrow.replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
+    
+    if now_utc > start_time:
+        start_time = None
 
     # Ensure the result is timezone-aware and in UTC
     tomorrow_9am_utc = tomorrow_9am_utc.astimezone(pytz.utc)
 
     start_calculation = time.time()
-    start_time, min_cost = analyzer.find_cheapest_period(end_time=tomorrow_9am_utc)
+    start_time, min_cost, max_cost = analyzer.find_cheapest_period(start_time=start_time, end_time=tomorrow_9am_utc)
     print(f'calculation time: {time.time() - start_calculation}')
 
     if start_time:
-        print(f"The cheapest start time is {start_time} with a cost of {min_cost:.2f}")
+        print(f"The cheapest start time is {start_time} with a cost of {min_cost:.2f}. Max: {max_cost:.2f}")
     else:
         print("No cheapest period found.")
