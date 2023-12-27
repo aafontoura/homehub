@@ -73,7 +73,7 @@ def test_calculate_cost(sample_appliance_profile, sample_prices):
 # Test for Finding Cheapest Period
 def test_find_cheapest_period(sample_appliance_profile, sample_prices):
     analyzer = EnergyPriceAnalyzer(sample_appliance_profile, sample_prices)
-    start_time, min_cost = analyzer.find_cheapest_period()
+    start_time, min_cost, max_cost = analyzer.find_cheapest_period()
     assert isinstance(start_time, datetime) or start_time is None
     assert isinstance(min_cost, float) or min_cost is None
 
@@ -102,7 +102,7 @@ def test_calculation(mock_datetime, sample_appliance_profile, sample_prices):
     for data in test_data:
         mock_datetime.now.return_value = data['Current Time']
         analyzer.update_prices(sample_prices)
-        start_time, min_cost = analyzer.find_cheapest_period()
+        start_time, min_cost, max_cost = analyzer.find_cheapest_period()
         assert start_time == data['Start Time']
         test_min_cost = None if min_cost is None else round(min_cost, 2)
         assert test_min_cost == data['Min Cost']
