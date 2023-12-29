@@ -200,7 +200,7 @@ class DishwasherControl(hass.Hass):
                 f"self.energy.find_cheapest_period(start_time={start_time}, end_time={tomorrow_8am_utc}) "
             )
             
-        self.energy.update_prices()
+        self.energy.update_prices(json_prices)
 
         return self.energy.find_cheapest_period(
             start_time=start_time, end_time=tomorrow_8am_utc
