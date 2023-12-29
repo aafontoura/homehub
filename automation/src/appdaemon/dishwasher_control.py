@@ -1,5 +1,5 @@
 import hassapi as hass
-import os
+import os, logging
 from datetime import datetime, timedelta
 import pytz
 
@@ -42,6 +42,7 @@ class DishwasherControl(hass.Hass):
     )
     SENSOR_DISHWASHER_CONNECTED = "binary_sensor.011040519583042054_connected"
     SENSOR_OPERSTATE = "sensor.011040519583042054_bsh_common_status_operationstate"
+    SENSOR_START_RELATIVE = "sensor.011040519583042054_bsh_common_option_startinrelative"
     SELECT_PROGRAM = "select.011040519583042054_programs"
     BUTTON_START = "button.011040519583042054_start_pause"
     HELPER_COST_INPUT = "input_number.dishwasher_cost"
@@ -65,14 +66,9 @@ class DishwasherControl(hass.Hass):
         # Log the current state of the savings helper.
         self.log(self.get_state(self.HELPER_SAVINGS))
 
-        # Load and process energy prices for the energy analyzer.
-        prices = str(
-            self.get_state("sensor.epex_spot_data_net_price_2", attribute="data")
-        )
-        prices = prices.replace("'", '"')
+        
         self.energy = EnergyPriceAnalyzer(
             load_csv(get_data_file_path("data/dishwasher_eco_profile.csv")),
-            load_json_from_string(prices),
         )
 
         # Check if the dishwasher is ready and program it if so.
@@ -167,6 +163,8 @@ class DishwasherControl(hass.Hass):
         prices = str(
             self.get_state("sensor.epex_spot_data_net_price_2", attribute="data")
         )
+        
+        
         prices = prices.replace("'", '"')
         if self.ENABLE_LOG:
             self.log(prices)
