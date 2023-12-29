@@ -66,13 +66,15 @@ def test_load_json_from_file(sample_prices):
 
 # Test for Cost Calculation
 def test_calculate_cost(sample_appliance_profile, sample_prices):
-    analyzer = EnergyPriceAnalyzer(sample_appliance_profile, sample_prices)
+    analyzer = EnergyPriceAnalyzer(sample_appliance_profile)
+    analyzer.update_prices(sample_prices)
     cost = analyzer.calculate_cost(30)  # Example shift in minutes
     assert cost >= 0
 
 # Test for Finding Cheapest Period
 def test_find_cheapest_period(sample_appliance_profile, sample_prices):
-    analyzer = EnergyPriceAnalyzer(sample_appliance_profile, sample_prices)
+    analyzer = EnergyPriceAnalyzer(sample_appliance_profile)
+    analyzer.update_prices(sample_prices)
     start_time, min_cost, max_cost = analyzer.find_cheapest_period()
     assert isinstance(start_time, datetime) or start_time is None
     assert isinstance(min_cost, float) or min_cost is None
@@ -82,7 +84,7 @@ def test_find_cheapest_period(sample_appliance_profile, sample_prices):
 @patch('src.energycalculation.datetime')
 def test_update_prices(mock_datetime, sample_appliance_profile, sample_prices):
     mock_datetime.now.return_value = MOCKED_CURRENT_TIME
-    analyzer = EnergyPriceAnalyzer(sample_appliance_profile, sample_prices)
+    analyzer = EnergyPriceAnalyzer(sample_appliance_profile)
     analyzer.update_prices(sample_prices)  # Update with new price data
     assert not analyzer.price_resampled.empty
 
@@ -98,7 +100,7 @@ def test_calculation(mock_datetime, sample_appliance_profile, sample_prices):
     # assert round(min_cost, 2) == 34.62
 
     mock_datetime.now.return_value = test_data[0]['Current Time']
-    analyzer = EnergyPriceAnalyzer(sample_appliance_profile, sample_prices)
+    analyzer = EnergyPriceAnalyzer(sample_appliance_profile)
     for data in test_data:
         mock_datetime.now.return_value = data['Current Time']
         analyzer.update_prices(sample_prices)

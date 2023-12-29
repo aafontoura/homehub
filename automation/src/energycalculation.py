@@ -57,7 +57,7 @@ class EnergyPriceAnalyzer:
     """
     A class for analyzing energy prices and appliance profiles to find the cheapest operation period.
     """
-    def __init__(self, appliance_profile, prices):
+    def __init__(self, appliance_profile):
         """
         Initialize the EnergyPriceAnalyzer with appliance profile and price data.
 
@@ -66,7 +66,6 @@ class EnergyPriceAnalyzer:
         prices (pd.DataFrame): Energy price data DataFrame.
         """
         self._set_appliance_profile(appliance_profile)
-        self.update_prices(prices)
         # self._resample_data()
 
     def _set_prices(self, prices):
