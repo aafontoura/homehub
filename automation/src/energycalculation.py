@@ -151,12 +151,6 @@ class EnergyPriceAnalyzer:
         if self.price_resampled.empty:
             print("No future price data available.")
             return None, None, None
-        
-        # Calculate the time difference in seconds (or another appropriate unit)
-        time_diff_seconds = int((self.price_resampled.index[0] - self.energy_resampled.index[0]).total_seconds())
-
-        # Shift the energy_resampled DataFrame by the calculated number of seconds
-        self.energy_resampled = self.energy_resampled.shift(periods=time_diff_seconds, freq='S')
 
         # The above code is assigning the value of `self.price_resampled` to the variable `prices`.
         prices = self.price_resampled
@@ -167,6 +161,12 @@ class EnergyPriceAnalyzer:
         if start_time is not None:
             prices = prices[prices.index > pd.to_datetime(start_time)]
       
+
+        # Calculate the time difference in seconds (or another appropriate unit)
+        time_diff_seconds = int((prices.index[0] - self.energy_resampled.index[0]).total_seconds())
+
+        # Shift the energy_resampled DataFrame by the calculated number of seconds
+        self.energy_resampled = self.energy_resampled.shift(periods=time_diff_seconds, freq='S')
 
 
         min_cost = float('inf')
