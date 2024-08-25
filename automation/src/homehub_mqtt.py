@@ -38,18 +38,18 @@ class AutomationPubSub:
                 logging.debug(f"Topic '{topic}' is already subscribed.")
 
     def connect(self):
-        
+        retries = 0
         while True:
             try:
                 logging.info(f"Connecting to broker {self.broker_ip}")
-                self.client.connect(self.broker_ip)  
-                self.client.loop_start()   
+                self.client.connect(self.broker_ip)
+                self.client.loop_start()
                 break
             except (ConnectionRefusedError, socket.timeout, OSError) as e:
-                logging.error(f'Failed to connect: {e}')
-                logging.info(f'Retrying connection...')
+                retries += 1
+                logging.error(f'Failed to connect: {e} (Attempt {retries})')
+                logging.info(f'Retrying connection in {self.RECONNECTION_TIMER} seconds...')
                 time.sleep(self.RECONNECTION_TIMER)
-                continue
 
         
          
