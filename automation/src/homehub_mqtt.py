@@ -27,9 +27,15 @@ class AutomationPubSub:
         self._subscribe_to_topics(topics)
 
     def _subscribe_to_topics(self,topics):
+        if not isinstance(topics, list):
+            logging.error("Topics should be a list.")
+            return
         
         for topic in topics:
-            self.topics.append(topic)
+            if topic not in self.topics:
+                self.topics.append(topic)
+            else:
+                logging.debug(f"Topic '{topic}' is already subscribed.")
 
     def connect(self):
         
