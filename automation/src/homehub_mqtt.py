@@ -1,6 +1,11 @@
-import time,json, logging, threading, socket
+import time
+import json
+import logging
+import threading
+import socket
 import paho.mqtt.client as paho
 from json.decoder import JSONDecodeError
+import yaml  # Ensure yaml is imported for the read_config method
 
 class AutomationPubSub:
     RECONNECTION_TIMER = 10
@@ -22,13 +27,25 @@ class AutomationPubSub:
         self._subscribe_to_topics(topics)
 
     def _subscribe_to_topics(self,topics):
+        
         for topic in topics:
             self.topics.append(topic)
 
     def connect(self):
-        logging.info(f"Connecting to broker {self.broker_ip}")
-        self.client.connect(self.broker_ip)     
-        self.client.loop_start()
+        
+        while True:
+            try:
+                logging.info(f"Connecting to broker {self.broker_ip}")
+                self.client.connect(self.broker_ip)  
+                self.client.loop_start()   
+                break
+            except (ConnectionRefusedError, socket.timeout, OSError) as e:
+                logging.error(f'Failed to connect: {e}')
+                logging.info(f'Retrying connection...')
+                time.sleep(self.RECONNECTION_TIMER)
+                continue
+
+        
          
 
 
