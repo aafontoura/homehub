@@ -107,7 +107,8 @@ class AutomationPubSub:
         try:
             logging.debug("Trying to reconnect")
             self.client.reconnect()
-            # del(self._timer_reconnect)
+            if self._timer_reconnect:
+                self._timer_reconnect.cancel()  # Cancel the timer if reconnect succeeds
         except (ConnectionRefusedError, socket.timeout, OSError) as e:
             logging.error(f'Reconnection failed: {e}') 
             self._timer_reconnect = threading.Timer(self.RECONNECTION_TIMER, self.reconnect)
