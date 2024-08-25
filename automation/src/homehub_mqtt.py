@@ -77,9 +77,11 @@ class AutomationPubSub:
 
     def on_connect(self,client, userdata, message, properties=None):
         logging.debug("on_connect fired")        
+        if not self.topics:
+            logging.warning("No topics to subscribe to on connect.")
         for topic in self.topics:
             logging.debug(f'Subscribing to: {topic}')
-            client.subscribe(topic,qos=1)
+            client.subscribe(topic, qos=1)
 
     def on_disconnect(self,client, userdata, message):
         
