@@ -166,7 +166,7 @@ class EnergyPriceAnalyzer:
         time_diff_seconds = int((prices.index[0] - self.energy_resampled.index[0]).total_seconds())
 
         # Shift the energy_resampled DataFrame by the calculated number of seconds
-        self.energy_resampled = self.energy_resampled.shift(periods=time_diff_seconds, freq='S')
+        self.energy_resampled = self.energy_resampled.shift(periods=time_diff_seconds, freq='s')
 
 
         min_cost = float('inf')
