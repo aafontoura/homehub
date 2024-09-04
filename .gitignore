@@ -5,3 +5,4 @@ docker/postgres/secret.env
 docker/grafana/.env
 docker/influx/.env
 docker/appdaemon/.env
+automation/src/instagram/secret.env

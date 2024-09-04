@@ -1,0 +1,16 @@
+[Unit]
+Description=Instagram Followers Logger Service
+After=network.target
+
+[Service]
+ExecStart=/home/antau/homehub/automation/src/instagram/.venv/bin/python /home/antau/homehub/automation/src/instagram/log_followers.py camilamarques.nutri 43200
+WorkingDirectory=/home/antau/homehub/automation/src/instagram
+Environment="PYTHONUNBUFFERED=1"
+Restart=on-failure
+User=antau
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=instagram_logger
+
+[Install]
+WantedBy=multi-user.target
