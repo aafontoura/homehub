@@ -183,27 +183,35 @@ class DishwasherControl(hass.Hass):
         if now_utc < today_12pm_utc and now_utc > today_8am_utc:
             self.log(f'{now_utc} is too early to get prices for next day')
             
+            start_time = now_utc
+            finish_time_constraint_utc = now_utc.replace(hour=23, minute=59, second=0, microsecond=0)
+        else:
+            start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
+            finish_time_constraint_utc = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
+            # # Set the time to 9 AM UTC on tomorrow's date
+            # tomorrow_8am_utc = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
 
-        # Set the time to 9 AM UTC on tomorrow's date
-        tomorrow_8am_utc = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
+            # # Ensure the result is timezone-aware and in UTC
+            # tomorrow_8am_utc = tomorrow_8am_utc.astimezone(pytz.utc)
 
-        # Ensure the result is timezone-aware and in UTC
-        tomorrow_8am_utc = tomorrow_8am_utc.astimezone(pytz.utc)
+            
 
-        start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
+        
+
+        # start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
 
         if now_utc > start_time:
             start_time = None
 
         if self.ENABLE_LOG:
             self.log(
-                f"self.energy.find_cheapest_period(start_time={start_time}, end_time={tomorrow_8am_utc}) "
+                f"self.energy.find_cheapest_period(start_time={start_time}, end_time={finish_time_constraint_utc}) "
             )
             
         self.energy.update_prices(json_prices)
 
         return self.energy.find_cheapest_period(
-            start_time=start_time, end_time=tomorrow_8am_utc
+            start_time=start_time, end_time=finish_time_constraint_utc
         )
 
     def terminate(self):
