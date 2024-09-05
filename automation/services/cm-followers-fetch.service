@@ -8,8 +8,6 @@ WorkingDirectory=/home/antau/homehub/automation/src/instagram
 Environment="PYTHONUNBUFFERED=1"
 Restart=on-failure
 User=antau
-StandardOutput=syslog
-StandardError=syslog
 SyslogIdentifier=instagram_logger
 
 [Install]
