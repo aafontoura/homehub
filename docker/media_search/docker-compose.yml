@@ -1,4 +1,4 @@
-version: '3.3'
+#version: '3.3'
 services:  
     transmission-openvpn:
         volumes:
@@ -12,8 +12,9 @@ services:
         networks:
             - media-search-net
         dns:
-            - 208.67.222.222
-            - 208.67.220.220
+            - 8.8.8.8
+            #- 208.67.222.222
+            #- 208.67.220.220
         cap_add:
             - NET_ADMIN
         logging:
@@ -26,23 +27,7 @@ services:
         # restart: never
         image: haugene/transmission-openvpn:latest #:latest-armhf
         container_name: transmission    
-    jackett:
-        image: linuxserver/jackett
-        container_name: jackett
-        networks:
-            - media-search-net
-        environment:
-            - PUID=1000
-            - PGID=100
-            - TZ=Europe/Netherlands
-            - AUTO_UPDATE=true #optional
-            - RUN_OPTS=#optional
-        volumes:
-            - /mnt/user/homehub_config/media_search/jackett:/config
-            #Jackett only needs config
-        restart: unless-stopped
-        ports:
-            - 9117:9117
+
 
     radarr:
         image: linuxserver/radarr
@@ -104,6 +89,36 @@ services:
         ports:
             - 8686:8686
             # - 5299:5299
+    
+    overseerr:
+        image: lscr.io/linuxserver/overseerr:latest
+        container_name: overseerr
+        environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=Etc/UTC
+        volumes:
+        - /mnt/user/homehub_config/media_search/overseerr:/config
+        ports:
+        - 5055:5055
+        restart: unless-stopped
+        networks:
+            - media-search-net
+
+    prowlarr:
+        image: lscr.io/linuxserver/prowlarr:latest
+        container_name: prowlarr
+        environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=Etc/UTC
+        volumes:
+        - /mnt/user/homehub_config/media_search/prowlarr:/config
+        ports:
+        - 9696:9696
+        restart: unless-stopped
+        networks:
+            - media-search-net
 
 networks:
   media-search-net:
