@@ -96,9 +96,9 @@ class DishwasherControl(hass.Hass):
         
         
         self.log("Program finished")
-        savings = float(self.get_state(self.HELPER_SAVINGS))
-        cost = float(self.get_state(self.HELPER_COST_INPUT))
-        self.set_value(self.HELPER_SAVINGS, cost / 100 + savings)
+        hitoric_savings = float(self.get_state(self.HELPER_SAVINGS))
+        savings = self.max_cost-self.cost
+        self.set_value(self.HELPER_SAVINGS, savings / 100 + hitoric_savings)
 
     def program_dishwasher(self):
         """
