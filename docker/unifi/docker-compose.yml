@@ -1,17 +1,37 @@
----
-version: "2.1"
+
 services:
-  unifi-controller:
-    image: lscr.io/linuxserver/unifi-controller:latest
-    container_name: unifi-controller
+  unifi-db:
+    image: docker.io/mongo:latest
+    container_name: unifi-db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=$MONGO_INIT_PASS
+      - MONGO_USER=$MONGO_USER
+      - MONGO_PASS=$MONGO_PASS
+      - MONGO_DBNAME=unifi
+      - MONGO_AUTHSOURCE=admin
+    volumes:
+      - ~/homehub_config/unifi/mongodb/data:/data/db
+      - ~/homehub_config/unifi/mongodb/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
+    restart: unless-stopped
+  unifi-network-application:
+    image: lscr.io/linuxserver/unifi-network-application:latest
+    container_name: unifi-network-application
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Amsterdam
+      - MONGO_USER=$MONGO_USER
+      - MONGO_PASS=$MONGO_PASS
+      - MONGO_HOST=unifi-db
+      - MONGO_PORT=27017
+      - MONGO_DBNAME=unifi
+      - MONGO_AUTHSOURCE=admin
       - MEM_LIMIT=1024 #optional
       - MEM_STARTUP=1024 #optional
+      - MONGO_TLS= #optional
     volumes:
-      - ~/appdata/unifi:/config
+      - ~/homehub_config/unifi/config:/config
     ports:
       - 8443:8443
       - 3478:3478/udp
