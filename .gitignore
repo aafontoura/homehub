@@ -6,3 +6,4 @@ docker/grafana/.env
 docker/influx/.env
 docker/appdaemon/.env
 automation/src/instagram/secret.env
+docker/unifi/.env
