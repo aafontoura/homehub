@@ -2,6 +2,7 @@ import time, json, logging
 import paho.mqtt.client as paho
 import signal
 import sys
+import os
 
 from homehub_mqtt import AutomationPubSub
 
@@ -47,17 +48,20 @@ class VentilationAutomation(AutomationPubSub):
                     self.set_ventilation(8)
             except KeyError as e:
                 logging.error(f'Key Error: {e}')
-                return  
+                return
             except TypeError as e:
                 logging.error(f'Type Error: {e}')
                 return
         else:
-            logging.debug(f'Skipping topic: {topic}')
+            logging.warning(f'Received message from unknown topic: {topic}')
 
     def set_ventilation(self, power_percentage: int):
         if 0 <= power_percentage <= 100:
             logging.info(f'Setting ventilation to {power_percentage}% - itho/cmd - {str(int(power_percentage * 2.55))}')
-            self.client.publish("itho/cmd", str(int(power_percentage * 2.55)))
+            try:
+                self.client.publish("itho/cmd", str(int(power_percentage * 2.55)))
+            except paho.mqtt.client.MQTTException as e:
+                logging.error(f'Failed to publish MQTT message: {e}')
 
 
 def signal_handler(sig, frame):
@@ -65,8 +69,12 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
+def get_broker_ip():
+    return os.getenv('MQTT_BROKER_IP', '192.168.1.60')
+
+
 if __name__ == "__main__":
-    broker = "192.168.1.60"
+    broker = get_broker_ip()
     name = "automation.ventilation"
 
     ventilation_automation = VentilationAutomation(broker_ip=broker, name=name)
