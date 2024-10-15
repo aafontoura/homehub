@@ -22,6 +22,15 @@ class VentilationAutomation(AutomationPubSub):
     BATHROOM_TEMPERATURE_SENSOR = "Bathroom Sensor"
     TOPICS = [f'{ROOT_TOPIC}/{BATHROOM_TEMPERATURE_SENSOR}']
 
+    # Humidity thresholds and corresponding ventilation levels
+    HUMIDITY_HIGH_THRESHOLD = 85
+    HUMIDITY_MEDIUM_THRESHOLD = 80
+    HUMIDITY_LOW_THRESHOLD = 75
+    VENTILATION_HIGH = 95
+    VENTILATION_MEDIUM = 70
+    VENTILATION_LOW = 50
+    VENTILATION_MIN = 8
+
     def __init__(self, broker_ip: str, name: str):
         # Initialize the parent class with broker IP and name, and subscribe to topics
         super().__init__(broker_ip, name)
@@ -42,15 +51,17 @@ class VentilationAutomation(AutomationPubSub):
         # Check if the topic matches the expected bathroom sensor topic
         if topic == f'{self.ROOT_TOPIC}/{self.BATHROOM_TEMPERATURE_SENSOR}':
             try:
-                # Control the ventilation based on the humidity level
-                if payload['humidity'] > 85:
-                    self.set_ventilation(95)
-                elif payload['humidity'] > 80:
-                    self.set_ventilation(70)
-                elif payload['humidity'] > 75:
-                    self.set_ventilation(50)
+                humidity = payload['humidity']
+                # Determine the ventilation level based on humidity
+                if humidity > self.HUMIDITY_HIGH_THRESHOLD:
+                    power_percentage = self.VENTILATION_HIGH
+                elif humidity > self.HUMIDITY_MEDIUM_THRESHOLD:
+                    power_percentage = self.VENTILATION_MEDIUM
+                elif humidity > self.HUMIDITY_LOW_THRESHOLD:
+                    power_percentage = self.VENTILATION_LOW
                 else:
-                    self.set_ventilation(8)
+                    power_percentage = self.VENTILATION_MIN
+                self.set_ventilation(power_percentage)
             except KeyError as e:
                 # Log an error if a required key is missing from the payload
                 logging.error(f'Key Error: {e}')
