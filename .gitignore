@@ -7,3 +7,4 @@ docker/influx/.env
 docker/appdaemon/.env
 automation/src/instagram/secret.env
 docker/unifi/.env
+automation/src/instagram/.env
