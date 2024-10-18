@@ -34,6 +34,10 @@ class DishwasherControl(hass.Hass):
     
     LOCAL_TZ = pytz.timezone('Europe/Amsterdam')
 
+    MORNING_START_HOUR = 8
+    AFTERNOON_START_HOUR = 13
+
+
     # Constants representing various Home Assistant entity IDs.
     SENSOR_REMOTE_START = (
         "binary_sensor.011040519583042054_bsh_common_status_remotecontrolstartallowed"
@@ -64,6 +68,9 @@ class DishwasherControl(hass.Hass):
         
         self.program_timer = None
         self.start_time = None
+        self.max_cost = 0
+        self.cost = 0 
+
 
         # Log the current state of the savings helper.
         self.log(self.get_state(self.HELPER_SAVINGS))
@@ -107,17 +114,12 @@ class DishwasherControl(hass.Hass):
         Determines the optimal start time for the dishwasher based on energy prices and
         programs the dishwasher to start at that time.
         """
-        
-        self.log("Programming...")
 
         start_time, self.cost, self.max_cost = self.calculate_start_time()
-        if self.ENABLE_LOG:
-            self.log(f"{start_time}, {self.cost}, {self.max_cost}")
         self.start_dishwasher(start_time)
-
         self.set_value(self.HELPER_COST_INPUT, round(self.cost / 100, ndigits=4))
 
-        self.log(f"Dishwasher will start at ({start_time}) \nCost: {self.cost}")
+        self.log(f"Dishwasher will start at ({start_time.astimezone(self.LOCAL_TZ)}) \nCost: {self.cost} ({self.max_cost})")
 
     def is_dishwasher_ready(self):
         """
@@ -130,10 +132,7 @@ class DishwasherControl(hass.Hass):
         connected = self.get_state(self.SENSOR_DISHWASHER_CONNECTED)
 
         if self.ENABLE_LOG:
-            self.log(door_closed)
-            self.log(remote_start)
-            self.log(sensor_ready)
-            self.log(connected)
+            self.log(f'dc:{door_closed}| rs:{remote_start}| sr:{sensor_ready}| c:{connected}')
 
         if (
             door_closed == "off"
@@ -183,8 +182,8 @@ class DishwasherControl(hass.Hass):
         tomorrow_local = now_local + timedelta(days=1)
 
 
-        today_1pm_local = now_local.replace(hour=13, minute=0, second=0, microsecond=0)
-        today_8am_local = now_local.replace(hour=8, minute=0, second=0, microsecond=0)
+        today_1pm_local = now_local.replace(hour=self.AFTERNOON_START_HOUR, minute=0, second=0, microsecond=0)
+        today_8am_local = now_local.replace(hour=self.MORNING_START_HOUR, minute=0, second=0, microsecond=0)
         
         if now_local < today_1pm_local and now_local > today_8am_local:
             self.log(f'{now_local} is too early to get prices for next day')
@@ -196,7 +195,7 @@ class DishwasherControl(hass.Hass):
             finish_time_constraint_utc = tomorrow_local.replace(hour=8, minute=0, second=0, microsecond=0).astimezone(pytz.utc)
 
         if now_utc > start_time_utc:
-            start_time_utc = None
+            start_time_utc = now_utc
 
         if self.ENABLE_LOG:
             self.log(
@@ -227,7 +226,7 @@ class DishwasherControl(hass.Hass):
         entity, attribute, old, new, kwargs: Parameters provided by the callback mechanism.
         """
         
-        self.log("Callback")
+        self.log("Dishwasher ready check")
 
         if self.is_dishwasher_ready():
             self.program_dishwasher()
@@ -247,11 +246,8 @@ class DishwasherControl(hass.Hass):
         current_time = datetime.now(pytz.utc)
         time_difference = start_time - current_time
         if self.ENABLE_LOG:
-            self.log(f"start_dishwasher({start_time}) -> Diff: {time_difference}")
-            self.log(
-                f'Starting program: "key":"BSH.Common.Option.StartInRelative","value":{int(time_difference.total_seconds())}]'
-            )
-        self.log(time_difference.total_seconds())
+            self.log(f"start dishwasher at {start_time.astimezone(self.LOCAL_TZ)}")
+            self.log(f"Delayed start:  {time_difference}")
         self.call_service(
             "home_connect_alt/start_program",
             device_id=self.DEVICE_ID,
