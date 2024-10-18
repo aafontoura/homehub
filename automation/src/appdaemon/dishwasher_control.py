@@ -32,6 +32,8 @@ class DishwasherControl(hass.Hass):
     Attributes are constants representing various Home Assistant entity IDs.
     """
     
+    LOCAL_TZ = pytz.timezone('Europe/Amsterdam')
+
     # Constants representing various Home Assistant entity IDs.
     SENSOR_REMOTE_START = (
         "binary_sensor.011040519583042054_bsh_common_status_remotecontrolstartallowed"
@@ -159,6 +161,8 @@ class DishwasherControl(hass.Hass):
         Calculates the best start time for the dishwasher based on energy price data.
         This method considers the cheapest energy period for running the dishwasher.
         """
+
+        
         
         prices = str(
             self.get_state("sensor.epex_spot_data_net_price_2", attribute="data")
@@ -173,45 +177,39 @@ class DishwasherControl(hass.Hass):
 
         # Get today's date and time in UTC
         now_utc = datetime.now(pytz.utc)
+        now_local = datetime.now(self.LOCAL_TZ)
 
         # Get tomorrow's date
-        tomorrow = now_utc + timedelta(days=1)
+        tomorrow_local = now_local + timedelta(days=1)
+
+
+        today_1pm_local = now_local.replace(hour=13, minute=0, second=0, microsecond=0)
+        today_8am_local = now_local.replace(hour=8, minute=0, second=0, microsecond=0)
         
-        today_12pm_utc = now_utc.replace(hour=13, minute=0, second=0, microsecond=0)
-        today_8am_utc = now_utc.replace(hour=8, minute=0, second=0, microsecond=0)
-        
-        if now_utc < today_12pm_utc and now_utc > today_8am_utc:
-            self.log(f'{now_utc} is too early to get prices for next day')
+        if now_local < today_1pm_local and now_local > today_8am_local:
+            self.log(f'{now_local} is too early to get prices for next day')
             
-            start_time = now_utc
-            finish_time_constraint_utc = now_utc.replace(hour=23, minute=59, second=0, microsecond=0)
+            start_time_utc = now_utc
+            finish_time_constraint_utc = now_local.replace(hour=23, minute=59, second=0, microsecond=0).astimezone(pytz.utc)
         else:
-            start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
-            finish_time_constraint_utc = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
-            # # Set the time to 9 AM UTC on tomorrow's date
-            # tomorrow_8am_utc = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
+            start_time_utc = now_local.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
+            finish_time_constraint_utc = tomorrow_local.replace(hour=8, minute=0, second=0, microsecond=0).astimezone(pytz.utc)
 
-            # # Ensure the result is timezone-aware and in UTC
-            # tomorrow_8am_utc = tomorrow_8am_utc.astimezone(pytz.utc)
-
-            
-
-        
-
-        # start_time = now_utc.replace(hour=21, minute=0, second=0).astimezone(pytz.utc)
-
-        if now_utc > start_time:
-            start_time = None
+        if now_utc > start_time_utc:
+            start_time_utc = None
 
         if self.ENABLE_LOG:
             self.log(
-                f"self.energy.find_cheapest_period(start_time={start_time}, end_time={finish_time_constraint_utc}) "
+                f"UTC: self.energy.find_cheapest_period(start_time={start_time_utc}, end_time={finish_time_constraint_utc}) "
+            )
+            self.log(
+                f"LOCAL self.energy.find_cheapest_period(start_time={start_time_utc.astimezone(self.LOCAL_TZ)}, end_time={finish_time_constraint_utc.astimezone(self.LOCAL_TZ)}) "
             )
             
         self.energy.update_prices(json_prices)
 
         return self.energy.find_cheapest_period(
-            start_time=start_time, end_time=finish_time_constraint_utc
+            start_time=start_time_utc, end_time=finish_time_constraint_utc
         )
 
     def terminate(self):
