@@ -2,7 +2,7 @@
 
 
 # Define an array of folders
-services=("automation-ventilation" "logger-ventilation" "storage-light" "automation-bed-ledstrip" "automation-kitchen-lights" "automation-bathroom-light" "automation-towel-heater")
+services=("automation-ventilation" "logger-ventilation" "automation-bed-ledstrip" "automation-kitchen-lights" "automation-bathroom-light" "automation-towel-heater")
 
 # Loop through the folders and call docker-compose for each one
 for service in "${services[@]}"
