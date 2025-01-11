@@ -8,3 +8,5 @@ docker/appdaemon/.env
 automation/src/instagram/secret.env
 docker/unifi/.env
 automation/src/instagram/.env
+update/docker_check.log
+update/docker_versions.json
