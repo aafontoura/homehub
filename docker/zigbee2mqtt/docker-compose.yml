@@ -1,15 +1,16 @@
-version: '3'
 services:
   zigbee2mqtt:
     container_name: zigbee2mqtt
-    image: koenkk/zigbee2mqtt:latest-dev
+    image: koenkk/zigbee2mqtt:2.0.0
     volumes:
-      - ~/homehub_config/zigbee2mqtt:/app/data
+      - ~/config/zigbee2mqtt:/app/data
       - /run/udev:/run/udev:ro
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
     restart: always
-    network_mode: host
+    ports:
+      # Frontend port
+      - 8085:8080
     privileged: true
     environment:
       - TZ=Europe/Amsterdam
