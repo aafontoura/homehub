@@ -1,15 +1,14 @@
-version: '3'
 services:
   mosquitto_broker:
     container_name: mosquitto
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.20
+    ports:
+      - "1883:1883" #default mqtt port
+      - "9001:9001" #default mqtt port for websockets
     volumes:
-      - ~/homehub_config/mosquitto/data:/mosquitto/data 
-      - ~/homehub_config/mosquitto/log:/mosquitto/log
-      - ~/homehub_config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf 
+      - ~/config/mosquitto/data:/mosquitto/data
+      - ~/config/mosquitto/log:/mosquitto/log
+      - ~/config/mosquitto/config:/mosquitto/config
     restart: always
-    network_mode: host
     environment:
       - TZ=Europe/Amsterdam
-
-      
