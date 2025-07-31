@@ -1,25 +1,25 @@
-version: "3"
-
 # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
 services:
   pihole:
     container_name: pihole
-    image: pihole/pihole:2024.07.0
+    image: pihole/pihole:2025.07.1
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "67:67/udp"
-      - "82:82/tcp"
+        #- "67:67/udp"
+      - "82:80/tcp"
     environment:
       TZ: 'Europe/Amsterdam'
+      FTLCONF_webserver_api_password: 'Natural-Entrust1-Probiotic'
+
       PIHOLE_DNS_: 208.67.222.222;208.67.220.220;1.1.1.1
       DHCP_ACTIVE: 'false'
-      WEB_PORT: 82
+      # iWEB_PORT: 82
       # WEBPASSWORD: 'homehub'
     # Volumes store your data between container upgrades
     volumes:
-      - '/home/pi/config/pihole/etc-pihole/:/etc/pihole/'
-      - '/home/pi/config/pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/'
+      - '/home/pi/config/pihole6/etc-pihole/:/etc/pihole/'
+      - '/home/pi/config/pihole6/etc-dnsmasq.d/:/etc/dnsmasq.d/'
     # Recommended but not required (DHCP needs NET_ADMIN)
     #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
     cap_add:
