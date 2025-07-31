@@ -12,5 +12,5 @@ services:
     restart: always
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /mnt/user/appdata/hass-postgresdb:/var/lib/postgresql/data
+      - ~/config/hass-postgresdb:/var/lib/postgresql/data
   
