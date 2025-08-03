@@ -1,9 +1,12 @@
 ---
 services:
   homeassistant:
-    image: lscr.io/linuxserver/homeassistant:2025.7.4
+    image: ghcr.io/home-assistant/home-assistant:2025.7.4
+    platform: linux/arm64
     container_name: homeassistant
     network_mode: host
+    security_opt:
+      - seccomp=unconfined
     environment:
       - PUID=1000
       - PGID=1000
@@ -12,4 +15,3 @@ services:
       - ~/config/homeassistant:/config
     ports:
       - 8123:8123
-    restart: unless-stopped
