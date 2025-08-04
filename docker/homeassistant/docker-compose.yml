@@ -2,11 +2,8 @@
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2025.7.4
-    platform: linux/arm64
     container_name: homeassistant
     network_mode: host
-    security_opt:
-      - seccomp=unconfined
     environment:
       - PUID=1000
       - PGID=1000
