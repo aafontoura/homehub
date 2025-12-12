@@ -1,0 +1,69 @@
+services:
+  # otbr:
+  #   # OpenThread Border Router doesn't have tags on Docker Hub, so using 'latest' tag
+  #   image: openthread/border-router:latest
+  #   privileged: true
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800&uart-flow-control"
+  #     OT_INFRA_IF: "eth0"
+  #     OT_THREAD_IF: "wpan0"
+  #     OT_REST_LISTEN_ADDR: "0.0.0.0"
+  #     OT_REST_LISTEN_PORT: "8081"
+  #     OT_LOG_LEVEL: 7
+  #   devices:
+  #     - /dev/serial/by-id/usb-Nabu_Casa_Home_Assistant_Connect_ZBT-1_38c2bb92ffd6ed119bbf796162c613ac-if00-port0:/dev/ttyUSB0
+  #     - /dev/net/tun
+  #   volumes:
+  #     - ~/config/openthread:/data/
+  #   network_mode: host
+
+  otbr:
+    container_name: otbr
+    image: "ghcr.io/ownbee/hass-otbr-docker:latest"
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN    
+    environment:
+      DEVICE: "/dev/ttyUsbTread"
+      # BACKBONE_IF: wlp0s20f3 #enp3s0
+      BACKBONE_IF: "eth0"
+      FLOW_CONTROL: 1
+      FIREWALL: 1
+      NAT64: 1
+      BAUDRATE: 460800
+      OTBR_REST_PORT: 8081
+      OTBR_WEB_PORT: 7586
+      OTBR_REST_LISTEN_ADDR: "0.0.0.0"  # Fix mDNS conflicts
+      OTBR_SET_THREAD_DATASET: 1       # Sync credentials with HA
+      AUTOFLASH_FIRMWARE: 0      
+      OT_LOG_LEVEL: 7
+    devices:
+      - /dev/serial/by-id/usb-Nabu_Casa_Home_Assistant_Connect_ZBT-1_38c2bb92ffd6ed119bbf796162c613ac-if00-port0:/dev/ttyUsbTread
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ~/config/openthread/var/lib/thread:/var/lib/thread
+
+
+  matter-server:
+    image: ghcr.io/matter-js/python-matter-server:8.1.2b0
+    container_name: matter-server
+    restart: unless-stopped
+    # Required for mDNS to work correctly
+    network_mode: host
+    security_opt:
+      # Needed for Bluetooth via dbus
+      - apparmor:unconfined
+    volumes:
+      # Create an .env file that sets the USERDIR environment variable.
+      - ${USERDIR:-$HOME}/config/matter-server/data:/data/
+      # Required for Bluetooth via D-Bus
+      - /run/dbus:/run/dbus:ro
+    # If you adjust command line, make sure to pass the default CMD arguments too:
+    #command: --storage-path /data --paa-root-cert-dir /data/credentials --bluetooth-adapter 0
+    command: --storage-path /data --paa-root-cert-dir /data/credentials --bluetooth-adapter 0
