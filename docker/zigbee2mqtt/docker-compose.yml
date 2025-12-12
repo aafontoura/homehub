@@ -5,8 +5,8 @@ services:
     volumes:
       - ~/config/zigbee2mqtt:/app/data
       - /run/udev:/run/udev:ro
-    devices:
-      - /dev/ttyUSB0:/dev/ttyUSB0
+    devices:      
+      - /dev/ttyUSB1:/dev/ttyUSB1
     restart: always
     ports:
       # Frontend port
