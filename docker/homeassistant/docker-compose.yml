@@ -1,14 +1,18 @@
 ---
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2025.7.4
+    image: homeassistant/home-assistant:2025.11.2
     container_name: homeassistant
     network_mode: host
+    restart: unless-stopped
+    privileged: true
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - ~/config/homeassistant:/config
-    ports:
-      - 8123:8123
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+      
+
