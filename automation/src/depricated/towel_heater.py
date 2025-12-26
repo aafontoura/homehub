@@ -13,7 +13,7 @@ from enum import Enum
 from icecream import ic
 import time
 
-from .homehub_mqtt import AutomationPubSub
+from ..homehub_mqtt import AutomationPubSub
 
 
 

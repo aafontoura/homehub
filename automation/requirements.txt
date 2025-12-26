@@ -13,3 +13,4 @@ six==1.16.0
 tomli==2.0.1
 pandas==2.2.2
 PyYAML==6.0.2
+python-dotenv==1.0.0

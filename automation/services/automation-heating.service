@@ -1,0 +1,37 @@
+[Unit]
+Description=Heating Control Automation
+After=network.target mosquitto.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=antau
+WorkingDirectory=/home/antau/personal/thread/homehub/automation/src
+Environment="MQTT_BROKER_IP=192.168.1.60"
+
+# MQTT Authentication (optional)
+# Method 1: Inline environment variables (less secure, easier for development)
+# Environment="MQTT_USERNAME=your_username"
+# Environment="MQTT_PASSWORD=your_password"
+#
+# Method 2: External environment file (more secure, recommended for production)
+# Create /etc/systemd/system/automation-heating.service.d/credentials.conf:
+#   [Service]
+#   Environment="MQTT_USERNAME=your_username"
+#   Environment="MQTT_PASSWORD=your_password"
+# Then run: sudo chmod 600 /etc/systemd/system/automation-heating.service.d/credentials.conf
+#
+# Method 3: Load from .env file (development only)
+# The heating_control.py automatically loads from src/.env if python-dotenv is installed
+
+ExecStart=/usr/bin/python3 /home/antau/personal/thread/homehub/automation/src/heating_control.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=heating-control
+
+[Install]
+WantedBy=multi-user.target

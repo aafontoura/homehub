@@ -9,7 +9,7 @@ import yaml  # Ensure yaml is imported for the read_config method
 
 class AutomationPubSub:
     RECONNECTION_TIMER = 10
-    def __init__(self, broker_ip:str, name:str):
+    def __init__(self, broker_ip:str, name:str, username:str=None, password:str=None):
         self.name = name
         self.client= paho.Client(client_id=self.name, clean_session=False)
         self.client.on_message = self.__on_message
@@ -18,6 +18,13 @@ class AutomationPubSub:
         self.broker_ip = broker_ip
         self.topics = []
         self._timer_reconnect = None
+
+        # Set MQTT authentication if credentials provided
+        if username is not None and password is not None:
+            self.client.username_pw_set(username, password)
+            logging.info(f"MQTT authentication enabled for user: {username}")
+        else:
+            logging.debug("MQTT authentication not configured (using anonymous access)")
 
     
     def new_topics(self,topics):
