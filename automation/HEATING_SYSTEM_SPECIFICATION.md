@@ -536,7 +536,266 @@ zones:
 
 ---
 
-## 4. Traceability Matrix
+## 4. Risk Assessment
+
+### 4.1 Risk Evaluation Criteria
+
+**Likelihood Scale** (1-5):
+- 1 = Rare (may occur only in exceptional circumstances)
+- 2 = Unlikely (could occur at some time)
+- 3 = Possible (might occur at some time)
+- 4 = Likely (will probably occur in most circumstances)
+- 5 = Almost Certain (expected to occur in most circumstances)
+
+**Severity Scale** (1-5):
+- 1 = Negligible (minor inconvenience)
+- 2 = Minor (some disruption to service)
+- 3 = Moderate (significant disruption, repairable damage)
+- 4 = Major (property damage, extended service outage)
+- 5 = Catastrophic (fire hazard, structural damage, safety risk)
+
+**Risk Rating** = Likelihood × Severity
+- 1-5: Low Risk (monitor)
+- 6-12: Medium Risk (implement mitigations)
+- 13-25: High Risk (requires immediate mitigation)
+
+### 4.2 Identified Risks
+
+#### RISK-001: Overheating Due to Sensor Failure
+**Description**: Temperature sensor fails and reports incorrect (lower) temperature, causing system to continuously heat the zone beyond safe limits.
+
+**Likelihood**: 2 (Unlikely - sensors are generally reliable)
+**Severity**: 4 (Major - property damage, discomfort, wasted energy)
+**Risk Rating**: 8 (Medium)
+
+**Related Requirements**: SR-SF-002, SR-SF-003, UR-SM-001
+
+**Mitigations**:
+1. **Implemented**: Maximum temperature limit of 26°C with automatic shutdown (SR-SF-003)
+2. **Implemented**: Alert notification when temperature exceeds 26°C for >5 minutes (UR-SM-002)
+3. **Implemented**: Heating disabled if sensor becomes unavailable (SR-SF-002, SD-BC-001)
+4. **Recommended**: Add redundant temperature sensor per zone for cross-validation
+5. **Recommended**: Log temperature trend anomalies (e.g., >3°C increase in 10 minutes)
+
+#### RISK-002: Pump Premature Failure Due to Excessive Cycling
+**Description**: Software bug or misconfiguration causes pump to cycle rapidly (on/off every 30 seconds), leading to premature pump motor failure.
+
+**Likelihood**: 3 (Possible - could occur during PID tuning or configuration errors)
+**Severity**: 3 (Moderate - pump replacement cost, temporary heating loss)
+**Risk Rating**: 9 (Medium)
+
+**Related Requirements**: SR-SF-004, SR-SF-005, UR-SM-006, UR-EE-003
+
+**Mitigations**:
+1. **Implemented**: Minimum ON time of 10 minutes (SR-SF-004, SD-PCP-002)
+2. **Implemented**: Minimum OFF time of 10 minutes (SR-SF-005, SD-PCP-003)
+3. **Implemented**: Pump cycle count monitoring with alert if >10 cycles/hour (UR-SM-006, SD-PCP-007)
+4. **Implemented**: Duty cycle deadband (30% ON threshold, 5% OFF threshold) (SD-PCP-002, SD-PCP-003)
+5. **Recommended**: Log all pump state changes with timestamps for forensic analysis
+6. **Recommended**: Add configurable maximum cycle rate limit in code
+
+#### RISK-003: Boiler Dry Run (No Flow)
+**Description**: Boiler activates when all zone pumps are off, causing boiler to heat without water circulation, potentially damaging boiler heat exchanger.
+
+**Likelihood**: 2 (Unlikely - safety logic prevents this)
+**Severity**: 5 (Catastrophic - boiler damage, potential safety hazard)
+**Risk Rating**: 10 (Medium)
+
+**Related Requirements**: SR-SF-001
+
+**Mitigations**:
+1. **Implemented**: Boiler only activates if at least one pump is ON (SR-SF-001, SD-BC-001)
+2. **Implemented**: Boiler deactivates immediately when all pumps turn OFF (SD-BC-002)
+3. **Recommended**: Add flow sensor to verify water circulation before boiler activation
+4. **Recommended**: Add boiler temperature sensor with overheat protection (independent of zone sensors)
+5. **Recommended**: Implement watchdog timer - if boiler is ON for >30 seconds with no pump ON, trigger emergency shutdown
+
+#### RISK-004: Undetected Open Window Causing Energy Waste
+**Description**: Window detection algorithm fails to detect open window (e.g., slow air infiltration, sensor placement), causing system to heat while losing heat through open window.
+
+**Likelihood**: 3 (Possible - depends on room layout, window type, sensor placement)
+**Severity**: 2 (Minor - energy waste, difficulty reaching setpoint)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: UR-EE-001, UR-SM-005
+
+**Mitigations**:
+1. **Implemented**: Two-timeframe window detection (1-minute and 2-minute thresholds) (SD-WD-001)
+2. **Implemented**: Alert notification if window left open >30 minutes (UR-SM-005)
+3. **Implemented**: User can disable window detection if false positives occur (UR-EE-002, SD-WD-005)
+4. **Recommended**: Configurable threshold per zone based on room characteristics (SD-WD-001 notes)
+5. **Recommended**: Add magnetic door/window sensors for definitive open/close detection
+6. **Recommended**: Cross-correlate with outside temperature - larger temp drop expected when colder outside
+
+#### RISK-005: False Window Detection Causing Comfort Loss
+**Description**: Window detection incorrectly identifies normal temperature fluctuations as open window, disabling heating unnecessarily and preventing zone from reaching setpoint.
+
+**Likelihood**: 3 (Possible - depends on PID tuning, drafts, external factors)
+**Severity**: 2 (Minor - temporary discomfort, user frustration)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: UR-EE-002
+
+**Mitigations**:
+1. **Implemented**: User can globally disable window detection (UR-EE-002, SD-WD-005)
+2. **Implemented**: Window closing detection via temperature stabilization (SD-WD-004)
+3. **Implemented**: Two-threshold approach reduces false positives (SD-WD-001)
+4. **Recommended**: Configurable thresholds per zone (large vs small rooms)
+5. **Recommended**: Require temperature drop to persist for 2 consecutive measurements before triggering
+6. **Recommended**: Suppress window detection during first 30 minutes after pump turns ON (expected temp changes)
+
+#### RISK-006: MQTT Broker Failure Causing Loss of Control
+**Description**: MQTT broker becomes unavailable, preventing Home Assistant from controlling the heating system and monitoring status.
+
+**Likelihood**: 2 (Unlikely - MQTT is reliable, runs on same host)
+**Severity**: 3 (Moderate - loss of remote control, monitoring blind spot)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: SR-RL-001, SR-RL-006
+
+**Mitigations**:
+1. **Implemented**: Automatic MQTT reconnection in Python client (SR-RL-001, SD-PY-012)
+2. **Implemented**: Python control script operates autonomously without MQTT/HA (SD-AR-003)
+3. **Implemented**: Heartbeat monitoring to detect Python script failure (SR-RL-006)
+4. **Recommended**: MQTT broker monitoring with automatic restart on failure
+5. **Recommended**: Retained messages ensure configuration persists across MQTT restarts (SD-MQTT-005)
+6. **Recommended**: Fallback to last known setpoints if MQTT unavailable
+
+#### RISK-007: Python Control Script Crash Causing Total Heating Loss
+**Description**: Software bug, memory leak, or unhandled exception causes Python control script to crash, stopping all heating control.
+
+**Likelihood**: 2 (Unlikely - tested code with exception handling)
+**Severity**: 4 (Major - complete heating system failure in winter)
+**Risk Rating**: 8 (Medium)
+
+**Related Requirements**: SR-RL-005, SR-PR-005, UR-SM-007
+
+**Mitigations**:
+1. **Implemented**: Systemd service with automatic restart on failure (SR-RL-005, SD-DEP-002)
+2. **Implemented**: Comprehensive exception handling in control loop (SD-PY-015)
+3. **Implemented**: Heartbeat detection with alert if script offline >5 minutes (UR-SM-007)
+4. **Recommended**: Memory usage monitoring with restart if exceeds threshold
+5. **Recommended**: Automated testing suite for edge cases (sensor unavailable, rapid setpoint changes, etc.)
+6. **Recommended**: Log file rotation to prevent disk space exhaustion
+7. **Recommended**: Watchdog timer external to Python script
+
+#### RISK-008: Zone Pump Stuck ON Due to Relay Failure
+**Description**: Zone pump relay fails in closed position, causing pump to run continuously even when heating not required, wasting energy and potentially overheating zone.
+
+**Likelihood**: 2 (Unlikely - relay hardware is reliable)
+**Severity**: 3 (Moderate - energy waste, overheating, relay replacement cost)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: SR-SF-003, UR-SM-004
+
+**Mitigations**:
+1. **Implemented**: Maximum temperature limit of 26°C with shutdown (SR-SF-003)
+2. **Implemented**: Pump state monitoring via MQTT feedback (UR-SM-004)
+3. **Recommended**: Add current sensor to detect pump running vs commanded state
+4. **Recommended**: If temperature continues rising when pump commanded OFF, trigger alert
+5. **Recommended**: Implement "pump off" verification - if temp still rising 5 min after pump OFF command, assume stuck relay
+
+#### RISK-009: Underheating Due to Insufficient Boiler Capacity
+**Description**: Boiler unable to provide enough heat for both zones simultaneously during extreme cold weather, preventing zones from reaching setpoint.
+
+**Likelihood**: 2 (Unlikely - boiler sized for peak demand)
+**Severity**: 2 (Minor - temporary discomfort, higher heating costs)
+**Risk Rating**: 4 (Low)
+
+**Related Requirements**: UR-SM-003
+
+**Mitigations**:
+1. **Implemented**: Alert if temperature remains >2°C below setpoint for >1 hour (UR-SM-003)
+2. **Implemented**: Independent zone control allows priority management
+3. **Recommended**: Add zone priority setting (e.g., prefer ground floor in extreme cold)
+4. **Recommended**: Thermal performance monitoring identifies insufficient capacity (SD-TPM-001)
+5. **Recommended**: Log outdoor temperature correlation with heating capacity
+
+#### RISK-010: Configuration File Corruption Causing Startup Failure
+**Description**: Configuration file (`heating_config.yaml`) becomes corrupted or contains invalid values, preventing Python script from starting or causing erratic behavior.
+
+**Likelihood**: 2 (Unlikely - YAML is robust, file rarely edited)
+**Severity**: 3 (Moderate - heating system offline until fixed)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: SR-RL-007
+
+**Mitigations**:
+1. **Implemented**: Default values for missing parameters (SR-RL-007, SD-PY-006)
+2. **Implemented**: YAML parsing error handling in script startup
+3. **Recommended**: Configuration file validation on load (check value ranges, required fields)
+4. **Recommended**: Backup configuration file created on each successful startup
+5. **Recommended**: Configuration version control (Git repository)
+6. **Recommended**: Schema validation using YAML schema definition
+
+#### RISK-011: PID Oscillation Causing Temperature Swings
+**Description**: Incorrectly tuned PID parameters cause temperature to oscillate above/below setpoint, creating discomfort and potential equipment stress.
+
+**Likelihood**: 3 (Possible - especially during initial tuning)
+**Severity**: 2 (Minor - discomfort, reduced efficiency)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: UR-CA-001, UR-CA-002
+
+**Mitigations**:
+1. **Implemented**: User-adjustable PID parameters (UR-CA-001, SD-HA-006)
+2. **Implemented**: PID tuning guidance in documentation (UR-CA-002, SD-HA-016)
+3. **Implemented**: Conservative default PID values (SD-PID-005)
+4. **Implemented**: Pump cycling protection dampens rapid oscillations (SD-PCP-001)
+5. **Recommended**: Auto-tuning algorithm (Ziegler-Nichols method)
+6. **Recommended**: Oscillation detection with alert and recommended parameter adjustments
+
+#### RISK-012: Loss of Mobile Notifications During Critical Failure
+**Description**: Mobile app notification system fails, preventing user from receiving alerts about sensor failures, overheating, or system faults.
+
+**Likelihood**: 2 (Unlikely - Home Assistant notification reliable)
+**Severity**: 3 (Moderate - delayed response to critical issues)
+**Risk Rating**: 6 (Medium)
+
+**Related Requirements**: SR-IN-003, UR-SM-001 through UR-SM-007
+
+**Mitigations**:
+1. **Implemented**: Multiple alert types with different tags (SD-HA-011)
+2. **Implemented**: Critical alerts use high importance (SD-HA-011)
+3. **Recommended**: Redundant notification channels (email, SMS, persistent dashboard notifications)
+4. **Recommended**: Daily "system healthy" heartbeat notification to verify notification system works
+5. **Recommended**: Local alarm (buzzer/siren) for critical failures
+
+### 4.3 Risk Summary
+
+| Risk ID | Risk Title | Rating | Priority |
+|---------|-----------|--------|----------|
+| RISK-003 | Boiler Dry Run | 10 (Medium) | High |
+| RISK-002 | Pump Premature Failure | 9 (Medium) | High |
+| RISK-001 | Overheating Due to Sensor Failure | 8 (Medium) | High |
+| RISK-007 | Python Script Crash | 8 (Medium) | High |
+| RISK-004 | Undetected Open Window | 6 (Medium) | Medium |
+| RISK-005 | False Window Detection | 6 (Medium) | Medium |
+| RISK-006 | MQTT Broker Failure | 6 (Medium) | Medium |
+| RISK-008 | Pump Stuck ON | 6 (Medium) | Medium |
+| RISK-010 | Configuration Corruption | 6 (Medium) | Medium |
+| RISK-011 | PID Oscillation | 6 (Medium) | Medium |
+| RISK-012 | Notification Failure | 6 (Medium) | Medium |
+| RISK-009 | Insufficient Boiler Capacity | 4 (Low) | Low |
+
+### 4.4 Safety Requirements Coverage
+
+All High and Medium priority risks have been addressed through safety requirements:
+
+| Safety Requirement | Mitigates Risks |
+|-------------------|----------------|
+| SR-SF-001 | RISK-003 (Boiler Dry Run) |
+| SR-SF-002 | RISK-001 (Sensor Failure Overheating) |
+| SR-SF-003 | RISK-001 (Overheating), RISK-008 (Pump Stuck ON) |
+| SR-SF-004 | RISK-002 (Pump Cycling) |
+| SR-SF-005 | RISK-002 (Pump Cycling) |
+| SR-SF-006 | RISK-002 (Manual Override Abuse) |
+
+Additional recommended mitigations should be considered for defense-in-depth approach.
+
+---
+
+## 5. Traceability Matrix
 
 ### User Requirements → System Requirements
 
