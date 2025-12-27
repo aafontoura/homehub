@@ -769,13 +769,13 @@ zones:
 | RISK-002 | Pump Premature Failure | 9 (Medium) | High |
 | RISK-001 | Overheating Due to Sensor Failure | 8 (Medium) | High |
 | RISK-007 | Python Script Crash | 8 (Medium) | High |
-| RISK-004 | Undetected Open Window | 6 (Medium) | Medium |
-| RISK-005 | False Window Detection | 6 (Medium) | Medium |
-| RISK-006 | MQTT Broker Failure | 6 (Medium) | Medium |
-| RISK-008 | Pump Stuck ON | 6 (Medium) | Medium |
-| RISK-010 | Configuration Corruption | 6 (Medium) | Medium |
-| RISK-011 | PID Oscillation | 6 (Medium) | Medium |
-| RISK-012 | Notification Failure | 6 (Medium) | Medium |
+| RISK-004 | Undetected Open Window | 6 (Low) | Medium |
+| RISK-005 | False Window Detection | 6 (Low) | Medium |
+| RISK-006 | MQTT Broker Failure | 6 (Low) | Medium |
+| RISK-008 | Pump Stuck ON | 6 (Low) | Medium |
+| RISK-010 | Configuration Corruption | 6 (Low) | Medium |
+| RISK-011 | PID Oscillation | 6 (Low) | Medium |
+| RISK-012 | Notification Failure | 6 (Low) | Medium |
 | RISK-009 | Insufficient Boiler Capacity | 4 (Low) | Low |
 
 ### 4.4 Safety Requirements Coverage
@@ -830,6 +830,8 @@ Additional recommended mitigations should be considered for defense-in-depth app
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-27 | Claude | Initial specification document |
+| 1.1 | 2025-12-27 | User | Adjusted risk rating categories definition, updated risk descriptions and analysis |
+| 1.2 | 2025-12-27 | Claude | Updated risk summary table - rating 6 reclassified from Medium to Low per new categories |
 
 ---
 
