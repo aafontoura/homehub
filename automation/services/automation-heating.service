@@ -5,9 +5,9 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=antau
-WorkingDirectory=/home/antau/personal/thread/homehub/automation/src
-Environment="MQTT_BROKER_IP=192.168.1.60"
+User=pi
+WorkingDirectory=/home/pi/homehub/automation/src
+Environment="MQTT_BROKER_IP=192.168.1.10"
 
 # MQTT Authentication (optional)
 # Method 1: Inline environment variables (less secure, easier for development)
@@ -24,7 +24,7 @@ Environment="MQTT_BROKER_IP=192.168.1.60"
 # Method 3: Load from .env file (development only)
 # The heating_control.py automatically loads from src/.env if python-dotenv is installed
 
-ExecStart=/usr/bin/python3 /home/antau/personal/thread/homehub/automation/src/heating_control.py
+ExecStart=/home/pi/homehub/automation/.venv/bin/python3 /home/pi/homehub/automation/src/heating_control.py
 Restart=always
 RestartSec=10
 

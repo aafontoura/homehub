@@ -1075,7 +1075,7 @@ def main():
     )
 
     # Get MQTT broker IP from environment or use default
-    broker_ip = os.environ.get('MQTT_BROKER_IP', '192.168.1.60')
+    broker_ip = os.environ.get('MQTT_BROKER_IP', '192.168.1.10')
 
     # Get MQTT credentials from environment (optional)
     mqtt_username = os.environ.get('MQTT_USERNAME')
