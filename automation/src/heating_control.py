@@ -327,6 +327,7 @@ class HeatingZone:
         # Window detection state
         self.window_open = False
         self.window_open_time = None
+        self.window_detection_enabled = config.get('window_detection_enabled', True)  # Default: enabled
 
         # PID controller
         self.pid = PIDController(
@@ -375,6 +376,15 @@ class HeatingZone:
         - If drop rate exceeds threshold (e.g., 0.3°C/min), window is open
         - Use multiple timeframes to reduce false positives
         """
+        # Check if window detection is enabled
+        if not self.window_detection_enabled:
+            # If window detection is disabled, reset window state if it was open
+            if self.window_open:
+                logging.info(f"{self.name}: Window detection DISABLED - clearing window open state")
+                self.window_open = False
+                self.window_open_time = None
+            return False
+
         if len(self.temp_history) < 20:
             logging.debug(f"{self.name}: Window detection skipped (insufficient history: {len(self.temp_history)}/20)")
             return False
@@ -695,11 +705,15 @@ class HeatingControl(AutomationPubSub):
         # Heating mode control
         topics.append("heating/mode/set")
 
+        # Window detection enable/disable (global)
+        topics.append("heating/window_detection/set")
+
         self._subscribe_to_topics(topics)
 
     def handle_message(self, topic, payload):
         """Handle incoming MQTT messages"""
         try:
+            logging.debug(f"Received message on {topic}: {payload}")
             # Temperature sensor updates
             for zone_name, zone in self.zones.items():
                 if topic == zone.config['temperature_sensor_topic']:
@@ -707,6 +721,8 @@ class HeatingControl(AutomationPubSub):
                     if temp is not None:
                         zone.update_temperature(temp)
                         logging.debug(f"{zone_name} temperature: {temp}°C")
+                    else:
+                        logging.warning(f"Invalid temperature payload for {zone_name}: {payload}")
                     return
 
             # Outside temperature
@@ -737,6 +753,14 @@ class HeatingControl(AutomationPubSub):
             if topic == "heating/mode/set":
                 mode = payload if isinstance(payload, str) else payload.get('mode', 'auto')
                 self._handle_mode_change(mode)
+                return
+
+            # Window detection enable/disable (global - applies to all zones)
+            if topic == "heating/window_detection/set":
+                enabled = payload.get('enabled', True) if isinstance(payload, dict) else bool(payload)
+                for zone_name, zone in self.zones.items():
+                    zone.window_detection_enabled = enabled
+                logging.info(f"Window detection globally {'ENABLED' if enabled else 'DISABLED'} for all zones")
                 return
 
         except Exception as e:
@@ -804,9 +828,11 @@ class HeatingControl(AutomationPubSub):
                         logging.debug(f"{zone_name}: Heating disabled (window open, pump already OFF)")
                     continue
 
+                
                 # Calculate PID control output (0.0 = no heat, 1.0 = max heat)
                 duty_cycle = zone.calculate_control_output()
                 zone.pump_duty_cycle = duty_cycle
+                logging.debug(f"{zone_name}: PID duty cycle: {duty_cycle:.1%} | Temp: {zone.current_temp}°C → Setpoint: {zone.setpoint}°C")
 
                 # Determine desired pump state using deadband hysteresis
                 # ON threshold: 30% prevents pump from turning on for tiny heating needs
@@ -929,6 +955,7 @@ class HeatingControl(AutomationPubSub):
         # Publish boiler state to Shelly relay
         boiler_topic = self.config['boiler_control_topic']
         payload = {"state": "ON" if active else "OFF"}
+        logging.debug(f"Publishing boiler state to MQTT | Topic: {boiler_topic} | Payload: {payload}")
         self.client.publish(boiler_topic, json.dumps(payload), qos=1, retain=True)
 
         # Publish heating_active state for Home Assistant integration

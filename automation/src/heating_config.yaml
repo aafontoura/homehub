@@ -7,9 +7,9 @@
 ###############################################################################
 
 # MQTT Topics
-boiler_control_topic: "zigbe2mqtt/Boiler Heat Request Switch/set"
+boiler_control_topic: "zigbee2mqtt/Boiler Heat Request Switch/set"
 heartbeat_topic: "boiler_heat_request/heartbeat"
-outside_temperature_topic: "zigbe2mqtt/Outdoor Sensor"
+outside_temperature_topic: "zigbee2mqtt/Outdoor Sensor"
 
 # Control Loop Settings
 control_interval_seconds: 30  # How often to run control loop (30 sec)
