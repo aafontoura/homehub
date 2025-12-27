@@ -9,6 +9,9 @@
 1. [User-Facing Requirements](#user-facing-requirements)
 2. [System Requirements](#system-requirements)
 3. [System Design](#system-design)
+4. [Risk Assessment](#risk-assessment)
+5. [Traceability Matrix](#traceability-matrix)
+6. [Document Revision History](#document-revision-history)
 
 ---
 
@@ -61,6 +64,14 @@
 **UR-CA-003**: Changes to setpoints or settings shall take effect immediately without requiring system restart.
 
 **UR-CA-004**: The system shall respond to manual setpoint changes immediately, bypassing normal pump cycling protection.
+
+**UR-CA-005**: The heating system shall be available as a typical thermostaat control for the user with setpoint, current temperature, mode, schedules. 
+
+**UR-CA-006**: The heating system shall follow schedules defined by the user including time of the day with different setpoints for weekdays and weekends.
+
+**UR-CA-007**: The heating system shall follow mode selected by the user including vacation, off (frozing protection), follow schedule, custom setpoint for X hours. 
+
+
 
 ## 1.5 Accessibility
 
@@ -555,8 +566,8 @@ zones:
 - 5 = Catastrophic (fire hazard, structural damage, safety risk)
 
 **Risk Rating** = Likelihood × Severity
-- 1-5: Low Risk (monitor)
-- 6-12: Medium Risk (implement mitigations)
+- 1-6: Low Risk (monitor)
+- 7-12: Medium Risk (implement mitigations)
 - 13-25: High Risk (requires immediate mitigation)
 
 ### 4.2 Identified Risks
@@ -580,9 +591,9 @@ zones:
 #### RISK-002: Pump Premature Failure Due to Excessive Cycling
 **Description**: Software bug or misconfiguration causes pump to cycle rapidly (on/off every 30 seconds), leading to premature pump motor failure.
 
-**Likelihood**: 3 (Possible - could occur during PID tuning or configuration errors)
+**Likelihood**: 2 (Unlikely)
 **Severity**: 3 (Moderate - pump replacement cost, temporary heating loss)
-**Risk Rating**: 9 (Medium)
+**Risk Rating**: 6
 
 **Related Requirements**: SR-SF-004, SR-SF-005, UR-SM-006, UR-EE-003
 
@@ -647,8 +658,8 @@ zones:
 #### RISK-006: MQTT Broker Failure Causing Loss of Control
 **Description**: MQTT broker becomes unavailable, preventing Home Assistant from controlling the heating system and monitoring status.
 
-**Likelihood**: 2 (Unlikely - MQTT is reliable, runs on same host)
-**Severity**: 3 (Moderate - loss of remote control, monitoring blind spot)
+**Likelihood**: 3 (Possible - MQTT is reliable, but this is a homelab project, the user might stop it for maintenance or shutdown the electricity temporarly)
+**Severity**: 4 (Major - loss of remote control, monitoring blind spot, worst case scenario: System stuck on heating mode ON. Causing potential monetary problem for using too much gas/electricity or even due to device damage.)
 **Risk Rating**: 6 (Medium)
 
 **Related Requirements**: SR-RL-001, SR-RL-006
@@ -769,13 +780,13 @@ zones:
 | RISK-002 | Pump Premature Failure | 9 (Medium) | High |
 | RISK-001 | Overheating Due to Sensor Failure | 8 (Medium) | High |
 | RISK-007 | Python Script Crash | 8 (Medium) | High |
-| RISK-004 | Undetected Open Window | 6 (Low) | Medium |
-| RISK-005 | False Window Detection | 6 (Low) | Medium |
-| RISK-006 | MQTT Broker Failure | 6 (Low) | Medium |
-| RISK-008 | Pump Stuck ON | 6 (Low) | Medium |
-| RISK-010 | Configuration Corruption | 6 (Low) | Medium |
-| RISK-011 | PID Oscillation | 6 (Low) | Medium |
-| RISK-012 | Notification Failure | 6 (Low) | Medium |
+| RISK-004 | Undetected Open Window | 6 (Medium) | Medium |
+| RISK-005 | False Window Detection | 6 (Medium) | Medium |
+| RISK-006 | MQTT Broker Failure | 6 (Medium) | Medium |
+| RISK-008 | Pump Stuck ON | 6 (Medium) | Medium |
+| RISK-010 | Configuration Corruption | 6 (Medium) | Medium |
+| RISK-011 | PID Oscillation | 6 (Medium) | Medium |
+| RISK-012 | Notification Failure | 6 (Medium) | Medium |
 | RISK-009 | Insufficient Boiler Capacity | 4 (Low) | Low |
 
 ### 4.4 Safety Requirements Coverage
@@ -825,13 +836,12 @@ Additional recommended mitigations should be considered for defense-in-depth app
 
 ---
 
-## 5. Document Revision History
+## 6. Document Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.1 | 2025-12-27 | Claude | Added comprehensive risk assessment with 12 identified risks, likelihood/severity ratings, mitigations, and safety requirements coverage |
 | 1.0 | 2025-12-27 | Claude | Initial specification document |
-| 1.1 | 2025-12-27 | User | Adjusted risk rating categories definition, updated risk descriptions and analysis |
-| 1.2 | 2025-12-27 | Claude | Updated risk summary table - rating 6 reclassified from Medium to Low per new categories |
 
 ---
 
