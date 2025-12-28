@@ -710,6 +710,62 @@ class HeatingControl(AutomationPubSub):
 
         self._subscribe_to_topics(topics)
 
+    def _on_connection_established(self):
+        """
+        Called after MQTT connection and subscriptions are complete.
+        Requests initial state from all devices to ensure complete data before control starts.
+        """
+        self._request_initial_states()
+
+    def _request_initial_states(self):
+        """
+        Request current state from all Zigbee2MQTT devices on startup.
+        Ensures system has complete data before first control loop executes.
+
+        Uses Zigbee2MQTT '/get' endpoint pattern to query device state.
+        Responses arrive on normal device topics and are handled by handle_message().
+        """
+
+        logging.info("Requesting initial device states from Zigbee2MQTT...")
+
+        # Request temperature from all zone sensors
+        for zone in self.zones.values():
+            sensor_topic = zone.config['temperature_sensor_topic']
+            device_name = sensor_topic.replace('zigbee2mqtt/', '')
+            get_topic = f"zigbee2mqtt/{device_name}/get"
+
+            self.client.publish(get_topic, '{"temperature": ""}', qos=1)
+            logging.debug(f"Requested state: {get_topic}")
+
+        # Request outside temperature
+        if self.config and 'outside_temperature_topic' in self.config:
+            outdoor_topic = self.config['outside_temperature_topic']
+            device_name = outdoor_topic.replace('zigbee2mqtt/', '')
+            get_topic = f"zigbee2mqtt/{device_name}/get"
+
+            self.client.publish(get_topic, '{"temperature": ""}', qos=1)
+            logging.debug(f"Requested state: {get_topic}")
+
+        # Request pump states
+        for zone in self.zones.values():
+            pump_topic = zone.config['pump_control_topic']
+            device_name = pump_topic.replace('zigbee2mqtt/', '')
+            get_topic = f"zigbee2mqtt/{device_name}/get"
+
+            self.client.publish(get_topic, '{"state": ""}', qos=1)
+            logging.debug(f"Requested state: {get_topic}")
+
+        # Request boiler state
+        if self.config and 'boiler_control_topic' in self.config:
+            boiler_topic = self.config['boiler_control_topic']
+            device_name = boiler_topic.replace('zigbee2mqtt/', '')
+            get_topic = f"zigbee2mqtt/{device_name}/get"
+
+            self.client.publish(get_topic, '{"state": ""}', qos=1)
+            logging.debug(f"Requested state: {get_topic}")
+
+        logging.info("Initial state requests sent (awaiting responses...)")
+
     def handle_message(self, topic, payload):
         """Handle incoming MQTT messages"""
         try:
@@ -789,8 +845,14 @@ class HeatingControl(AutomationPubSub):
         pass
 
     def _start_control_loop(self):
-        """Start the main control loop"""
-        self._run_control_loop()
+        """Start the main control loop after initialization delay"""
+        # Delay first run to allow initial state requests to complete
+        initialization_delay = 5  # 5 seconds for devices to respond
+
+        logging.info(f"Delaying first control loop by {initialization_delay}s for initialization...")
+        self.control_timer = threading.Timer(initialization_delay, self._run_control_loop)
+        self.control_timer.daemon = True
+        self.control_timer.start()
 
     def _run_control_loop(self):
         """
@@ -815,6 +877,11 @@ class HeatingControl(AutomationPubSub):
 
             for zone_name, zone in self.zones.items():
                 logging.debug(f"--- Processing zone: {zone_name} ---")
+
+                # Validate zone has temperature data before processing
+                if zone.current_temp is None:
+                    logging.warning(f"{zone_name}: No temperature data available yet, skipping control loop")
+                    continue
 
                 # Check for window opening (auto-safety feature)
                 window_open = zone.detect_window_open()
@@ -931,7 +998,8 @@ class HeatingControl(AutomationPubSub):
         zone.set_pump_state(state)
 
         # Publish to MQTT for physical pump control
-        pump_topic = zone.config['pump_control_topic']
+        # Config has base topic, append /set for commands
+        pump_topic = zone.config['pump_control_topic'] + '/set'
         payload = {"state": "ON" if state else "OFF"}
         self.client.publish(pump_topic, json.dumps(payload), qos=1, retain=True)
 
@@ -953,7 +1021,8 @@ class HeatingControl(AutomationPubSub):
         self.boiler_active = active
 
         # Publish boiler state to Shelly relay
-        boiler_topic = self.config['boiler_control_topic']
+        # Config has base topic, append /set for commands
+        boiler_topic = self.config['boiler_control_topic'] + '/set'
         payload = {"state": "ON" if active else "OFF"}
         logging.debug(f"Publishing boiler state to MQTT | Topic: {boiler_topic} | Payload: {payload}")
         self.client.publish(boiler_topic, json.dumps(payload), qos=1, retain=True)

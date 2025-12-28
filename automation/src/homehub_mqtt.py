@@ -83,12 +83,23 @@ class AutomationPubSub:
         assert("Not Implemented")
 
     def on_connect(self,client, userdata, message, properties=None):
-        logging.debug("on_connect fired")        
+        logging.debug("on_connect fired")
         if not self.topics:
             logging.warning("No topics to subscribe to on connect.")
         for topic in self.topics:
             logging.debug(f'Subscribing to: {topic}')
             client.subscribe(topic, qos=1)
+
+        # Call subclass hook for post-connection initialization
+        self._on_connection_established()
+
+    def _on_connection_established(self):
+        """
+        Hook method called after MQTT connection and subscriptions are complete.
+        Subclasses can override this to perform initialization tasks.
+        Called on both initial connection and reconnections.
+        """
+        pass  # Default: do nothing
 
     def on_disconnect(self,client, userdata, message):
         
