@@ -7,7 +7,7 @@
 ###############################################################################
 
 # MQTT Topics
-boiler_control_topic: "zigbee2mqtt/Boiler Heat Request Switch/set"
+boiler_control_topic: "zigbee2mqtt/Boiler Heat Request Switch"
 heartbeat_topic: "boiler_heat_request/heartbeat"
 outside_temperature_topic: "zigbee2mqtt/Outdoor Sensor"
 
@@ -25,7 +25,7 @@ zones:
     temperature_sensor_topic: "zigbee2mqtt/Living Room Sensor"
 
     # Pump Control
-    pump_control_topic: "zigbee2mqtt/Pump UFH Ground Floor/set"
+    pump_control_topic: "zigbee2mqtt/Pump UFH Ground Floor"
 
     # Setpoints
     default_setpoint: 20.0  # Default target temperature (°C)
@@ -53,10 +53,10 @@ zones:
 
   first_floor:
     # Temperature Sensor
-    temperature_sensor_topic: "zigbee2mqtt/First Floor Sensor"
+    temperature_sensor_topic: "zigbee2mqtt/PM25 Sensor"
 
     # Pump Control
-    pump_control_topic: "zigbee2mqtt/Pump UFH First Floor/set"
+    pump_control_topic: "zigbee2mqtt/Pump UFH First Floor"
 
     # Setpoints
     default_setpoint: 19.0  # Slightly cooler upstairs
