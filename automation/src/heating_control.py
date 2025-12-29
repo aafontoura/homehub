@@ -224,97 +224,10 @@ class HeatingControl(AutomationPubSub):
 
     def _run_control_loop(self):
         """
-        Main control loop - runs periodically (default: every 30 seconds).
-
-        For each zone:
-        1. Check for window openings (rapid temp drop detection)
-        2. Calculate PID control output (duty cycle 0-100%)
-        3. Convert duty to pump ON/OFF with deadband (prevents cycling)
-        4. Apply pump protection (minimum ON/OFF times)
-        5. Publish pump state to MQTT
-
-        Then control boiler based on any zone being active.
+        Main control loop wrapper - runs the control logic and schedules next iteration.
         """
         try:
-            loop_start = time.time()
-
-            # Clear visual separator for new control loop (DEBUG level)
-            logging.debug("")
-            logging.debug("=" * 80)
-            logging.debug(f"CONTROL LOOP | Interval: {self.control_interval}s")
-            logging.debug("=" * 80)
-
-            # Update each zone
-            any_zone_active = False
-            zones_requesting_heat = []
-            zone_status_summary = []
-
-            for zone_name, zone in self.zones.items():
-                logging.debug("")
-                logging.debug(f"┌─ {zone_name.upper().replace('_', ' ')} " + "─" * (70 - len(zone_name)))
-
-                # Validate zone has temperature data before processing
-                if zone.current_temp is None:
-                    logging.debug(f"│ ⚠️  NO TEMPERATURE DATA - Skipping control")
-                    logging.debug(f"└" + "─" * 78)
-                    # Still publish climate state (will show current state even without temp)
-                    self._publish_climate_state(zone_name)
-                    zone_status_summary.append(f"{zone_name}: NO DATA")
-                    continue
-
-                # Calculate temperature error
-                temp_error = zone.setpoint - zone.current_temp
-                error_symbol = "🔥" if temp_error > 0 else "❄️" if temp_error < 0 else "✓"
-
-                # Calculate control output (0.0 = no heat, 1.0 = max heat)
-                duty_cycle = zone.calculate_control_output()
-                zone.pump_duty_cycle = duty_cycle
-
-                # Determine pump state
-                desired_state = duty_cycle > 0.0
-                pump_changing = desired_state != zone.pump_state
-                pump_symbol = "🟢" if desired_state else "⚫"
-                change_indicator = " [CHANGING]" if pump_changing else ""
-
-                # Log zone status (DEBUG level)
-                logging.debug(f"│ 🌡️  Temp: {zone.current_temp:5.1f}°C  →  Target: {zone.setpoint:5.1f}°C  │  Error: {temp_error:+5.1f}°C {error_symbol}")
-                logging.debug(f"│ 🎛️  Controller Output: {duty_cycle:6.1%}  │  Pump: {pump_symbol} {'ON ' if desired_state else 'OFF'}{change_indicator}")
-
-                # Apply pump state change if needed
-                if pump_changing:
-                    self._set_pump_state(zone_name, desired_state)
-                    logging.debug(f"│ 🔄 Pump state changed: {'OFF → ON' if desired_state else 'ON → OFF'}")
-
-                logging.debug(f"└" + "─" * 78)
-
-                # Track if zone is requesting heat (for boiler control)
-                if zone.pump_state:
-                    any_zone_active = True
-                    zones_requesting_heat.append(zone_name)
-                    zone_status_summary.append(f"{zone_name}: ON ({duty_cycle:.0%})")
-                else:
-                    zone_status_summary.append(f"{zone_name}: OFF")
-
-                # Publish climate state for thermostat interface (Part 1)
-                self._publish_climate_state(zone_name)
-
-            # Control boiler based on zone activity (DEBUG level)
-            logging.debug("")
-            logging.debug("─" * 80)
-            if any_zone_active:
-                logging.debug(f"🔥 BOILER: ON  │  Active zones: {', '.join(zones_requesting_heat)}")
-            else:
-                logging.debug(f"⚫ BOILER: OFF │  No zones requesting heat")
-
-            self._set_boiler_state(any_zone_active)
-
-            # Single INFO-level summary
-            boiler_status = "ON" if any_zone_active else "OFF"
-            logging.info(f"Control Loop: Boiler {boiler_status} | {' | '.join(zone_status_summary)}")
-
-            loop_duration = time.time() - loop_start
-            logging.debug(f"====== CONTROL LOOP END (duration: {loop_duration:.2f}s) ======\n")
-
+            self._run_control_loop_logic()
         except Exception as e:
             logging.error(f"Error in control loop: {e}", exc_info=True)
         finally:
@@ -323,6 +236,99 @@ class HeatingControl(AutomationPubSub):
             self.control_timer = threading.Timer(self.control_interval, self._run_control_loop)
             self.control_timer.daemon = True
             self.control_timer.start()
+
+    def _run_control_loop_logic(self):
+        """
+        Core control loop logic - calculates and applies heating control.
+
+        For each zone:
+        1. Calculate controller output (duty cycle 0-100%)
+        2. Determine pump state (ON if duty > 0%)
+        3. Publish pump state to MQTT
+
+        Then control boiler based on any zone being active.
+
+        This method contains only the control logic without scheduling,
+        so it can be called both for initial sync and regular loops.
+        """
+        loop_start = time.time()
+
+        # Clear visual separator for new control loop (DEBUG level)
+        logging.debug("")
+        logging.debug("=" * 80)
+        logging.debug(f"CONTROL LOOP | Interval: {self.control_interval}s")
+        logging.debug("=" * 80)
+
+        # Update each zone
+        any_zone_active = False
+        zones_requesting_heat = []
+        zone_status_summary = []
+
+        for zone_name, zone in self.zones.items():
+            logging.debug("")
+            logging.debug(f"┌─ {zone_name.upper().replace('_', ' ')} " + "─" * (70 - len(zone_name)))
+
+            # Validate zone has temperature data before processing
+            if zone.current_temp is None:
+                logging.debug(f"│ ⚠️  NO TEMPERATURE DATA - Skipping control")
+                logging.debug(f"└" + "─" * 78)
+                # Still publish climate state (will show current state even without temp)
+                self._publish_climate_state(zone_name)
+                zone_status_summary.append(f"{zone_name}: NO DATA")
+                continue
+
+            # Calculate temperature error
+            temp_error = zone.setpoint - zone.current_temp
+            error_symbol = "🔥" if temp_error > 0 else "❄️" if temp_error < 0 else "✓"
+
+            # Calculate control output (0.0 = no heat, 1.0 = max heat)
+            duty_cycle = zone.calculate_control_output()
+            zone.pump_duty_cycle = duty_cycle
+
+            # Determine pump state
+            desired_state = duty_cycle > 0.0
+            pump_changing = desired_state != zone.pump_state
+            pump_symbol = "🟢" if desired_state else "⚫"
+            change_indicator = " [CHANGING]" if pump_changing else ""
+
+            # Log zone status (DEBUG level)
+            logging.debug(f"│ 🌡️  Temp: {zone.current_temp:5.1f}°C  →  Target: {zone.setpoint:5.1f}°C  │  Error: {temp_error:+5.1f}°C {error_symbol}")
+            logging.debug(f"│ 🎛️  Controller Output: {duty_cycle:6.1%}  │  Pump: {pump_symbol} {'ON ' if desired_state else 'OFF'}{change_indicator}")
+
+            # Always publish pump state to ensure device stays in sync
+            self._set_pump_state(zone_name, desired_state)
+            if pump_changing:
+                logging.debug(f"│ 🔄 Pump state changed: {'OFF → ON' if desired_state else 'ON → OFF'}")
+
+            logging.debug(f"└" + "─" * 78)
+
+            # Track if zone is requesting heat (for boiler control)
+            if zone.pump_state:
+                any_zone_active = True
+                zones_requesting_heat.append(zone_name)
+                zone_status_summary.append(f"{zone_name}: ON ({duty_cycle:.0%})")
+            else:
+                zone_status_summary.append(f"{zone_name}: OFF")
+
+            # Publish climate state for thermostat interface (Part 1)
+            self._publish_climate_state(zone_name)
+
+        # Control boiler based on zone activity (DEBUG level)
+        logging.debug("")
+        logging.debug("─" * 80)
+        if any_zone_active:
+            logging.debug(f"🔥 BOILER: ON  │  Active zones: {', '.join(zones_requesting_heat)}")
+        else:
+            logging.debug(f"⚫ BOILER: OFF │  No zones requesting heat")
+
+        self._set_boiler_state(any_zone_active)
+
+        # Single INFO-level summary
+        boiler_status = "ON" if any_zone_active else "OFF"
+        logging.info(f"Control Loop: Boiler {boiler_status} | {' | '.join(zone_status_summary)}")
+
+        loop_duration = time.time() - loop_start
+        logging.debug(f"====== CONTROL LOOP END (duration: {loop_duration:.2f}s) ======\n")
 
     def _set_pump_state(self, zone_name, state):
         """Set pump state for a zone and publish to MQTT"""
@@ -343,17 +349,12 @@ class HeatingControl(AutomationPubSub):
 
     def _set_boiler_state(self, active):
         """Set boiler state and manage heartbeat watchdog"""
-        if active == self.boiler_active:
-            # No state change - log current state periodically
-            if active and self.boiler_on_time:
-                runtime = (time.time() - self.boiler_on_time) / 60
-                logging.debug(f"Boiler remains ON (runtime: {runtime:.1f} min)")
+        if not self.config:
             return
 
-        self.boiler_active = active
+        state_changing = active != self.boiler_active
 
-        # Publish boiler state to Shelly relay
-        # Config has base topic, append /set for commands
+        # Always publish boiler state to ensure device stays in sync
         boiler_topic = self.config['boiler_control_topic'] + '/set'
         payload = {"state": "ON" if active else "OFF"}
         logging.debug(f"Publishing boiler state to MQTT | Topic: {boiler_topic} | Payload: {payload}")
@@ -362,25 +363,29 @@ class HeatingControl(AutomationPubSub):
         # Publish heating_active state for Home Assistant integration
         self.client.publish("heating/boiler_active", json.dumps({"state": active}), qos=1, retain=True)
 
-        # Manage heartbeat watchdog timer (safety mechanism for Shelly relay)
-        if active:
-            self._start_heartbeat()
-            self.boiler_on_time = time.time()
-            logging.info(
-                f"BOILER ON | "
-                f"Heartbeat started (interval: {self.heartbeat_interval}s) | "
-                f"MQTT: {boiler_topic} → {payload}"
-            )
-        else:
-            self._stop_heartbeat()
-            runtime = (time.time() - self.boiler_on_time) / 60 if self.boiler_on_time else 0
-            self.boiler_on_time = None
-            logging.info(
-                f"BOILER OFF | "
-                f"Heartbeat stopped | "
-                f"Total runtime: {runtime:.1f} min | "
-                f"MQTT: {boiler_topic} → {payload}"
-            )
+        # Only update heartbeat and logging on state changes
+        if state_changing:
+            self.boiler_active = active
+
+            # Manage heartbeat watchdog timer (safety mechanism for Shelly relay)
+            if active:
+                self._start_heartbeat()
+                self.boiler_on_time = time.time()
+                logging.info(
+                    f"BOILER ON | "
+                    f"Heartbeat started (interval: {self.heartbeat_interval}s) | "
+                    f"MQTT: {boiler_topic} → {payload}"
+                )
+            else:
+                self._stop_heartbeat()
+                runtime = (time.time() - self.boiler_on_time) / 60 if self.boiler_on_time else 0
+                self.boiler_on_time = None
+                logging.info(
+                    f"BOILER OFF | "
+                    f"Heartbeat stopped | "
+                    f"Total runtime: {runtime:.1f} min | "
+                    f"MQTT: {boiler_topic} → {payload}"
+                )
 
     def _start_heartbeat(self):
         """Start heartbeat timer for Shelly watchdog"""
