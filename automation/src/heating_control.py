@@ -881,6 +881,8 @@ class HeatingControl(AutomationPubSub):
                 # Validate zone has temperature data before processing
                 if zone.current_temp is None:
                     logging.warning(f"{zone_name}: No temperature data available yet, skipping control loop")
+                    # Still publish climate state (will show current state even without temp)
+                    self._publish_climate_state(zone_name)
                     continue
 
                 # Check for window opening (auto-safety feature)
@@ -893,6 +895,8 @@ class HeatingControl(AutomationPubSub):
                         logging.warning(f"{zone_name}: Pump forced OFF due to open window (safety)")
                     else:
                         logging.debug(f"{zone_name}: Heating disabled (window open, pump already OFF)")
+                    # Publish climate state (show heating is off)
+                    self._publish_climate_state(zone_name)
                     continue
 
                 
@@ -971,6 +975,9 @@ class HeatingControl(AutomationPubSub):
                 if zone.pump_state or duty_cycle > zone.pump_duty_on_threshold:
                     any_zone_active = True
                     zones_requesting_heat.append(zone_name)
+
+                # Publish climate state for thermostat interface (Part 1)
+                self._publish_climate_state(zone_name)
 
             # Control boiler based on zone activity
             if any_zone_active:
@@ -1077,6 +1084,55 @@ class HeatingControl(AutomationPubSub):
         if self.heartbeat_timer:
             self.heartbeat_timer.cancel()
             self.heartbeat_timer = None
+
+    def _publish_climate_state(self, zone_name):
+        """
+        Publish climate entity state to MQTT for Home Assistant thermostat interface.
+
+        Publishes:
+        - Current temperature
+        - Target setpoint
+        - HVAC mode (heat/off based on enabled state)
+        - HVAC action (heating/idle based on pump state)
+        """
+        zone = self.zones[zone_name]
+
+        # Publish current temperature
+        if zone.current_temp is not None:
+            self.client.publish(
+                f"heating/{zone_name}/current_temp",
+                str(zone.current_temp),
+                qos=1,
+                retain=True
+            )
+
+        # Publish target temperature (setpoint)
+        self.client.publish(
+            f"heating/{zone_name}/climate/setpoint",
+            str(zone.setpoint),
+            qos=1,
+            retain=True
+        )
+
+        # Publish HVAC mode (heat/off based on enabled state)
+        # Check if zone is enabled via input_boolean
+        enabled = self.zones_enabled.get(zone_name, True)
+        mode = "heat" if enabled else "off"
+        self.client.publish(
+            f"heating/{zone_name}/climate/mode",
+            mode,
+            qos=1,
+            retain=True
+        )
+
+        # Publish HVAC action (heating/idle based on pump state)
+        action = "heating" if zone.pump_state else "idle"
+        self.client.publish(
+            f"heating/{zone_name}/climate/action",
+            action,
+            qos=1,
+            retain=True
+        )
 
     def _start_performance_reporting(self):
         """Start periodic performance reporting"""
