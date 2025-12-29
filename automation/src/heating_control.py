@@ -1114,13 +1114,12 @@ class HeatingControl(AutomationPubSub):
             retain=True
         )
 
-        # Publish HVAC mode (heat/off based on enabled state)
-        # Check if zone is enabled via input_boolean
-        enabled = self.zones_enabled.get(zone_name, True)
-        mode = "heat" if enabled else "off"
+        # Publish HVAC mode
+        # For Part 1, mode is always "heat" - the input_boolean controls actual heating
+        # Mode changes via climate card are handled by HA automations → input_boolean
         self.client.publish(
             f"heating/{zone_name}/climate/mode",
-            mode,
+            "heat",
             qos=1,
             retain=True
         )
