@@ -269,7 +269,35 @@ class HeatingControl(AutomationPubSub):
             logging.debug("")
             logging.debug(f"┌─ {zone_name.upper().replace('_', ' ')} " + "─" * (70 - len(zone_name)))
 
-            # Validate zone has temperature data before processing
+            # SR-SF-007: Check for stale sensor readings (RISK-013 Failure Mode B)
+            # Only check if we've received at least one update (ignore on startup)
+            if zone.last_temp_update_time is not None and zone.is_sensor_stale():
+                elapsed_minutes = (time.time() - zone.last_temp_update_time) / 60 if zone.last_temp_update_time else float('inf')
+                logging.warning(
+                    f"{zone_name}: SENSOR STALE - No update for {elapsed_minutes:.1f} min "
+                    f"(threshold: {zone.sensor_timeout_minutes} min)"
+                )
+                zone.current_temp = None  # Treat as unavailable, triggers SR-SF-002 shutdown below
+                self._publish_critical_alert(zone_name, "stale_sensor",
+                    f"No sensor update for {elapsed_minutes:.0f} minutes - heating disabled")
+
+            # SR-SF-008: Check for maximum runtime exceeded (RISK-013 Failure Mode B)
+            if zone.is_runtime_exceeded():
+                runtime_hours = (time.time() - zone.pump_on_start_time) / 3600
+                logging.critical(
+                    f"{zone_name}: EMERGENCY SHUTDOWN - Pump runtime {runtime_hours:.1f}h "
+                    f"exceeded {zone.max_runtime_hours}h limit"
+                )
+                # Force pump OFF
+                self._set_pump_state(zone_name, False)
+                zone.current_temp = None  # Disable zone until manual intervention
+                self._publish_critical_alert(zone_name, "runtime_exceeded",
+                    f"Emergency shutdown: pump runtime {runtime_hours:.1f}h exceeded {zone.max_runtime_hours}h limit")
+                logging.debug(f"└" + "─" * 78)
+                zone_status_summary.append(f"{zone_name}: EMERGENCY STOP")
+                continue
+
+            # SR-SF-002: Validate zone has temperature data before processing
             if zone.current_temp is None:
                 logging.debug(f"│ ⚠️  NO TEMPERATURE DATA - Skipping control")
                 logging.debug(f"└" + "─" * 78)
@@ -533,6 +561,31 @@ class HeatingControl(AutomationPubSub):
             f"Active zones: {active_zones_count}, "
             f"Total runtime: {metrics['boiler_runtime_minutes']:.1f} min"
         )
+
+    def _publish_critical_alert(self, zone_name, alert_type, message):
+        """
+        Publish critical safety alert to MQTT (SR-SF-007, SR-SF-008).
+
+        Args:
+            zone_name: Name of the zone triggering the alert
+            alert_type: Type of alert ("stale_sensor" or "runtime_exceeded")
+            message: Human-readable alert message
+        """
+        alert_payload = {
+            "zone": zone_name,
+            "alert_type": alert_type,
+            "message": message,
+            "timestamp": time.time()
+        }
+
+        self.client.publish(
+            f"heating/{zone_name}/alert/critical",
+            json.dumps(alert_payload),
+            qos=1,
+            retain=False  # Don't retain alerts
+        )
+
+        logging.critical(f"{zone_name}: CRITICAL ALERT published - {message}")
 
 
 def main():

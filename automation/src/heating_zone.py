@@ -6,6 +6,7 @@ and pump management.
 """
 
 import logging
+import time
 from pid_controller import PIDController
 from onoff_controller import OnOffController
 
@@ -52,6 +53,14 @@ class HeatingZone:
         self.pump_state = False
         self.pump_duty_cycle = 0.0  # 0.0 to 1.0
 
+        # SR-SF-007: Sensor update watchdog (RISK-013 Failure Mode B mitigation)
+        self.last_temp_update_time = None  # Track last sensor update timestamp
+        self.sensor_timeout_minutes = 20   # 20 minutes per SR-SF-007
+
+        # SR-SF-008: Maximum runtime safety (RISK-013 Failure Mode B mitigation)
+        self.pump_on_start_time = None     # When pump last turned ON
+        self.max_runtime_hours = 6         # 6 hours per SR-SF-008
+
     def calculate_control_output(self):
         """
         Calculate pump control output using configured controller.
@@ -69,12 +78,13 @@ class HeatingZone:
 
     def update_temperature(self, new_temp):
         """
-        Update the current temperature reading.
+        Update the current temperature reading and record timestamp (SR-SF-007).
 
         Args:
             new_temp: Current measured temperature in °C
         """
         self.current_temp = new_temp
+        self.last_temp_update_time = time.time()  # Record update time for staleness detection
 
     def update_setpoint(self, new_setpoint):
         """
@@ -93,15 +103,59 @@ class HeatingZone:
 
     def set_pump_state(self, new_state):
         """
-        Update pump state.
+        Update pump state and track runtime (SR-SF-008).
 
         Args:
             new_state: True for ON, False for OFF
         """
         if new_state != self.pump_state:
-            logging.info(
-                f"{self.name}: Pump {'ON' if new_state else 'OFF'} | "
-                f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
-            )
+            # Track pump ON time for SR-SF-008 maximum runtime safety
+            if new_state:
+                # Pump turning ON - record start time
+                self.pump_on_start_time = time.time()
+                logging.info(
+                    f"{self.name}: Pump ON | "
+                    f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
+                )
+            else:
+                # Pump turning OFF - clear start time
+                if self.pump_on_start_time is not None:
+                    runtime_hours = (time.time() - self.pump_on_start_time) / 3600
+                    logging.info(
+                        f"{self.name}: Pump OFF (runtime: {runtime_hours:.2f}h) | "
+                        f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
+                    )
+                else:
+                    logging.info(
+                        f"{self.name}: Pump OFF | "
+                        f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
+                    )
+                self.pump_on_start_time = None
 
         self.pump_state = new_state
+
+    def is_sensor_stale(self):
+        """
+        Check if sensor reading is stale (SR-SF-007).
+
+        Returns:
+            bool: True if no sensor update received within timeout period
+        """
+        if self.last_temp_update_time is None:
+            return True  # Never received any update
+
+        elapsed_minutes = (time.time() - self.last_temp_update_time) / 60
+        return elapsed_minutes > self.sensor_timeout_minutes
+
+    def is_runtime_exceeded(self):
+        """
+        Check if pump has been ON continuously for too long (SR-SF-008).
+
+        Returns:
+            bool: True if pump runtime exceeds maximum safe duration
+        """
+        if not self.pump_state or self.pump_on_start_time is None:
+            return False  # Pump is OFF or no start time recorded
+
+        elapsed_hours = (time.time() - self.pump_on_start_time) / 3600
+        return elapsed_hours >= self.max_runtime_hours
