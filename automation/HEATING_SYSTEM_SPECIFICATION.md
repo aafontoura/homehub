@@ -566,6 +566,16 @@ This provides defense-in-depth protection against runaway heating scenarios even
 
 **SR-SC-003**: Configuration shall be zone-based, allowing independent tuning parameters per zone.
 
+## 3.7 Alert Requirements
+
+**SR-AL-001**: All system alerts shall include a unique alert identifier following the format `HEAT-{CATEGORY}-{NUMBER}` where:
+- `CATEGORY` is a two-letter code: `SF` (Safety), `SN` (Sensor), `HW` (Hardware), `PR` (Performance), `SY` (System)
+- `NUMBER` is a zero-padded three-digit sequence number (e.g., `001`, `002`)
+- Examples: `HEAT-SF-001` (Safety alert #1), `HEAT-SN-001` (Sensor alert #1)
+
+**SR-AL-002**: Alert IDs shall be included in all MQTT alert payloads and Home Assistant notification messages for easy identification and troubleshooting.
+
+
 ---
 
 # 4. System Design
@@ -813,6 +823,8 @@ Dashboard → Input Boolean Helper →
 - Retain: true (persists across restarts)
 
 **SD-HA-011**: Alert automations shall use notification service `notify.mobile_app_{device}` with:
+- Unique alert ID per SR-AL-001 (format: `HEAT-{CATEGORY}-{NUMBER}`)
+- Alert ID included in notification title or message for easy identification
 - Unique tag per alert type
 - Group: "heating" for all heating-related alerts
 - Appropriate importance level (normal/high)
@@ -985,6 +997,7 @@ zones:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.3 | 2026-01-02 | Claude | Added Section 3.7 Alert Requirements (SR-AL-001, SR-AL-002, SR-AL-003); defined standardized alert ID format `HEAT-{CATEGORY}-{NUMBER}`; updated SD-HA-011 to include alert IDs in notifications; created comprehensive HEATING_ALERT_REFERENCE.md documentation |
 | 1.2 | 2026-01-01 | Claude | Added RISK-013 (Sensor Connection Loss) with critical analysis of stuck reading failure mode; identified gap in current safety requirements; added SR-SF-007 (Sensor Update Watchdog) and SR-SF-008 (Maximum Runtime Safety) to address highest unmitigated risk |
 | 1.1 | 2025-12-27 | Claude | Added comprehensive risk assessment with 12 identified risks, likelihood/severity ratings, mitigations, and safety requirements coverage |
 | 1.0 | 2025-12-27 | Claude | Initial specification document |
