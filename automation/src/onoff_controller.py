@@ -62,8 +62,8 @@ class OnOffController(HeatingController):
         if current_temp < turn_on_threshold:
             # Temperature too low - turn on heating
             self.is_heating = True
-        elif current_temp > turn_off_threshold:
-            # Temperature reached setpoint - turn off heating
+        elif current_temp >= turn_off_threshold:
+            # Temperature reached or exceeded setpoint - turn off heating
             self.is_heating = False
         # else: within dead-band, maintain current state
 
