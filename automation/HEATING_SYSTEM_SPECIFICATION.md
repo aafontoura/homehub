@@ -702,19 +702,22 @@ Dashboard → Input Boolean Helper →
 ### 3.4.5 Dashboard Design
 
 **SD-HA-012**: The dashboard shall have two views:
-1. **Overview**: Real-time monitoring and control
-2. **Advanced**: PID parameter tuning
+1. **Control**: User faced control (thermostat)
+2. **Overview**: Real-time monitoring and control
+
+**SD-HA-014**: The Control view shall contain the following:
+1. Header Card
+2. Thermostat Control for each zone
 
 **SD-HA-013**: The Overview view shall contain the following card groups (top to bottom):
 1. Header card (markdown)
 2. Quick Status glance card (5 columns)
-3. Global Settings entities card
-4. Zone Controls (2-column horizontal stack)
-5. Thermal Performance (2-column horizontal stack)
-6. Temperature history graph (24h)
-7. Duty cycle history graph (24h)
-8. Pump activity history graph (24h)
-9. System Health markdown card
+3. Zone Controls (2-column horizontal stack)
+4. Temperature history graph (24h)
+5. Duty cycle history graph (24h)
+6. Pump activity history graph (24h)
+7. System Health markdown card
+8. History Graph that combines temperature, setpoint, pump state, boiler state. 
 
 **SD-HA-014**: Entity names in cards shall be concise to prevent truncation:
 - Maximum 15 characters for labels
