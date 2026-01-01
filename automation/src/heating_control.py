@@ -47,6 +47,7 @@ class HeatingControl(AutomationPubSub):
         # Boiler state
         self.boiler_active = False
         self.boiler_on_time = None
+        self.total_boiler_runtime = 0.0  # Total runtime in minutes (cumulative)
 
         # Outside temperature
         self.outside_temp = None
@@ -313,6 +314,9 @@ class HeatingControl(AutomationPubSub):
             # Publish climate state for thermostat interface (Part 1)
             self._publish_climate_state(zone_name)
 
+            # Publish metrics for historical analysis and InfluxDB
+            self._publish_zone_metrics(zone_name, temp_error, duty_cycle)
+
         # Control boiler based on zone activity (DEBUG level)
         logging.debug("")
         logging.debug("─" * 80)
@@ -322,6 +326,9 @@ class HeatingControl(AutomationPubSub):
             logging.debug(f"⚫ BOILER: OFF │  No zones requesting heat")
 
         self._set_boiler_state(any_zone_active)
+
+        # Publish system-wide metrics
+        self._publish_system_metrics(any_zone_active, len(zones_requesting_heat))
 
         # Single INFO-level summary
         boiler_status = "ON" if any_zone_active else "OFF"
@@ -379,11 +386,13 @@ class HeatingControl(AutomationPubSub):
             else:
                 self._stop_heartbeat()
                 runtime = (time.time() - self.boiler_on_time) / 60 if self.boiler_on_time else 0
+                self.total_boiler_runtime += runtime  # Accumulate total runtime
                 self.boiler_on_time = None
                 logging.info(
                     f"BOILER OFF | "
                     f"Heartbeat stopped | "
-                    f"Total runtime: {runtime:.1f} min | "
+                    f"Session runtime: {runtime:.1f} min | "
+                    f"Total runtime: {self.total_boiler_runtime:.1f} min | "
                     f"MQTT: {boiler_topic} → {payload}"
                 )
 
@@ -461,6 +470,68 @@ class HeatingControl(AutomationPubSub):
             action,
             qos=1,
             retain=True
+        )
+
+    def _publish_zone_metrics(self, zone_name, temp_error, duty_cycle):
+        """
+        Publish zone metrics for historical analysis and InfluxDB.
+
+        Args:
+            zone_name: Name of the zone
+            temp_error: Temperature error (setpoint - current_temp) in °C
+            duty_cycle: Controller output duty cycle (0.0 to 1.0)
+        """
+        zone = self.zones[zone_name]
+
+        metrics = {
+            "setpoint": round(zone.setpoint, 2),
+            "temp_error": round(temp_error, 2),
+            "duty_cycle": round(duty_cycle * 100, 1),  # Convert to percentage
+            "controller_output": round(duty_cycle * 100, 1),  # Same as duty_cycle for Phase 1
+            "pump_active": zone.pump_state
+        }
+
+        self.client.publish(
+            f"heating/{zone_name}/metrics",
+            json.dumps(metrics),
+            qos=1,
+            retain=True
+        )
+
+        logging.debug(
+            f"{zone_name}: Published metrics | "
+            f"Setpoint: {metrics['setpoint']}°C, "
+            f"Error: {metrics['temp_error']:+.2f}°C, "
+            f"Duty: {metrics['duty_cycle']:.1f}%, "
+            f"Pump: {'ON' if metrics['pump_active'] else 'OFF'}"
+        )
+
+    def _publish_system_metrics(self, boiler_active, active_zones_count):
+        """
+        Publish system-wide metrics for historical analysis and InfluxDB.
+
+        Args:
+            boiler_active: Whether boiler is currently active
+            active_zones_count: Number of zones requesting heat
+        """
+        metrics = {
+            "boiler_active": boiler_active,
+            "boiler_runtime_minutes": round(self.total_boiler_runtime, 1),
+            "active_zones_count": active_zones_count
+        }
+
+        self.client.publish(
+            "heating/system/metrics",
+            json.dumps(metrics),
+            qos=1,
+            retain=True
+        )
+
+        logging.debug(
+            f"System: Published metrics | "
+            f"Boiler: {'ON' if boiler_active else 'OFF'}, "
+            f"Active zones: {active_zones_count}, "
+            f"Total runtime: {metrics['boiler_runtime_minutes']:.1f} min"
         )
 
 
