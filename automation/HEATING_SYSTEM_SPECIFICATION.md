@@ -263,10 +263,112 @@ Secondary functions enhance the system but are not essential for basic operation
 4. **Recommended**: Daily "system healthy" heartbeat notification to verify notification system works
 5. **Recommended**: Local alarm (buzzer/siren) for critical failures
 
+#### RISK-013: Temperature Sensor Connection Loss Due to Battery Depletion or Link Quality Degradation
+**Description**: Temperature sensor fails due to battery depletion or poor Zigbee link quality. This risk has two distinct failure modes with vastly different impacts:
+
+**Failure Mode A - Sensor Unavailable** (Graceful Failure):
+- Sensor stops transmitting completely
+- MQTT payload shows "unavailable" or sensor state becomes `None`
+- System correctly detects absence of data (heating_control.py:273)
+- Zone heating safely shuts down per SR-SF-002
+- User receives alert per UR-SM-001
+- **Impact**: Comfort loss only (safe shutdown)
+- **Severity**: 2 (Minor)
+
+**Failure Mode B - Stuck Reading** (CRITICAL - Silent Failure):
+- Sensor sends final reading before battery completely dies (e.g., 18.0°C)
+- Battery depletes mid-transmission or sensor firmware freezes
+- Sensor stops sending new updates but MQTT retains last valid reading
+- System continues using **stale** temperature reading indefinitely
+- **Critical code path** (heating_control.py:273-290):
+  - Check `if zone.current_temp is None` → **PASSES** (value is 18.0°C, not None)
+  - Controller calculates based on frozen 18.0°C reading
+  - If setpoint is 20.0°C → error = +2.0°C → **heating turns ON**
+  - Actual room temperature rises to 24°C, 26°C, 28°C...
+  - Sensor still reports 18.0°C → heating **continues unchecked**
+  - SR-SF-003 max temp limit (26°C) **ineffective** - relies on accurate sensor data
+- **Result**: Continuous uncontrolled heating, room overheats, potential property damage
+- **Severity**: 4 (Major - overheating risk, property damage, safety concern, monetary loss)
+
+**Likelihood**: 3 (Possible)
+- Battery-powered Zigbee sensors typically fail every 1-2 years
+- Stuck reading failure mode occurs in ~20% of battery failures based on Zigbee device behavior
+- Gradual voltage drop can cause sensor firmware to freeze while maintaining MQTT connection
+- No current detection mechanism for stale readings
+
+**Severity**: 4 (Major - Failure Mode B is critical)
+
+**Risk Rating**: **12 (Medium-High)** - Highest unmitigated risk after RISK-003
+
+**Related Requirements**: SR-SF-002 (partial), SR-SF-003 (ineffective for Mode B), UR-SM-001
+
+**Current Mitigations (Partial)**:
+1. **Implemented**: Heating disabled if sensor becomes unavailable (`current_temp is None`) - SR-SF-002, heating_control.py:273
+   - ✅ **Effective for Failure Mode A** (sensor unavailable)
+   - ❌ **Ineffective for Failure Mode B** (stuck reading)
+2. **Implemented**: User alert when sensor offline - UR-SM-001
+   - ✅ **Effective for Failure Mode A**
+   - ❌ **No alert for Failure Mode B** (sensor appears "online" with stale data)
+
+**Critical Gaps - Failure Mode B**:
+3. ❌ **NO detection** of stale/stuck sensor readings
+4. ❌ **NO timestamp** tracking for sensor updates
+5. ❌ **NO watchdog** for sensor update frequency
+6. ❌ **NO maximum runtime** limit independent of temperature readings
+
+**Recommended Mitigations**:
+
+**CRITICAL Priority** (Must implement to address Failure Mode B):
+7. **Sensor Update Watchdog** (NEW SR-SF-007):
+   - Track last update timestamp per sensor
+   - If no update for 20 minutes (10x normal interval) → set `current_temp = None`
+   - Triggers existing SR-SF-002 safety shutdown
+   - Implementation: Add `last_update_time` field to HeatingZone class
+8. **Staleness Detection**:
+   - Monitor temperature change rate: if temp hasn't changed by >0.05°C in 15 minutes while heating ON → suspicious
+   - Cross-validation: check if actual heating is occurring (pump ON, boiler ON, but temp frozen)
+   - Alert user: "Sensor may be stuck - verify manually"
+9. **Maximum Heating Runtime Safety** (NEW SR-SF-008):
+   - Independent watchdog: if pump ON continuously for >2 hours → force shutdown
+   - Alert user: "Emergency shutdown - pump runtime exceeded safe limit"
+   - Overrides all other logic (defense in depth)
+   - Prevents runaway heating even if all sensor checks fail
+
+**HIGH Priority** (Proactive Prevention):
+10. **Zigbee Link Quality Monitoring**:
+    - Monitor LQI (Link Quality Indicator) from Zigbee2MQTT
+    - Alert if LQI < 100 (degrading connection)
+    - Track link quality trend over time
+11. **Battery Level Monitoring**:
+    - Monitor battery percentage from Zigbee2MQTT
+    - Alert at 20% threshold (before critical failure)
+    - Predictive alert: if battery drops >10% in 1 week → "Replace battery soon"
+12. **Weekly Sensor Health Report**:
+    - Automated report showing: last update time, battery %, LQI, uptime
+    - Identifies sensors approaching failure before they fail
+    - Proactive maintenance scheduling
+
+**MEDIUM Priority** (Redundancy & Defense in Depth):
+13. **Redundant Temperature Sensor** per critical zone:
+    - Second sensor for cross-validation
+    - If sensors differ by >2°C → alert and use more conservative reading
+    - Cost: ~€30 per zone vs potential property damage
+14. **Graceful Degradation**:
+    - Use last known temp for 5 minutes before hard shutdown
+    - Allows for temporary Zigbee interference recovery
+    - Still safer than indefinite stale reading
+15. **Sensor Reliability Metrics**:
+    - Track uptime percentage, update frequency, failure count in InfluxDB
+    - Identify unreliable sensors proactively
+    - Trend analysis for predictive maintenance
+
+**Implementation Note**: Mitigation #7 (Sensor Update Watchdog) should be implemented immediately as it addresses the most critical unmitigated failure mode with minimal code changes.
+
 ## 1.3 Risk Summary
 
 | Risk ID | Risk Title | Rating | Priority |
 |---------|-----------|--------|----------|
+| RISK-013 | Sensor Connection Loss (Stuck Reading) | 12 (Medium-High) | **CRITICAL** |
 | RISK-003 | Boiler Dry Run | 10 (Medium) | High |
 | RISK-002 | Pump Premature Failure | 9 (Medium) | High |
 | RISK-001 | Overheating Due to Sensor Failure | 8 (Medium) | High |
@@ -287,11 +389,20 @@ All High and Medium priority risks have been addressed through safety requiremen
 | Safety Requirement | Mitigates Risks |
 |-------------------|----------------|
 | SR-SF-001 | RISK-003 (Boiler Dry Run) |
-| SR-SF-002 | RISK-001 (Sensor Failure Overheating) |
-| SR-SF-003 | RISK-001 (Overheating), RISK-008 (Pump Stuck ON) |
+| SR-SF-002 | RISK-001 (Sensor Failure Overheating), **RISK-013 Failure Mode A only** (Sensor Unavailable) |
+| SR-SF-003 | RISK-001 (Overheating), RISK-008 (Pump Stuck ON), **INEFFECTIVE for RISK-013 Failure Mode B** |
 | SR-SF-004 | RISK-002 (Pump Cycling) |
 | SR-SF-005 | RISK-002 (Pump Cycling) |
 | SR-SF-006 | RISK-002 (Manual Override Abuse) |
+| **SR-SF-007** (NEW) | **RISK-013 Failure Mode B** (Stuck Reading) - Sensor Update Watchdog |
+| **SR-SF-008** (NEW) | **RISK-013 Failure Mode B** (Stuck Reading) - Maximum Runtime Safety |
+
+**CRITICAL GAP IDENTIFIED**:
+- SR-SF-002 and SR-SF-003 do NOT mitigate RISK-013 Failure Mode B (stuck sensor readings)
+- Current implementation only checks `if current_temp is None` (heating_control.py:273)
+- Does NOT detect stale/frozen readings where sensor value is stuck at last reading
+- **New safety requirements SR-SF-007 and SR-SF-008 are CRITICAL** to address this gap
+- Implementation of sensor update watchdog should be prioritized immediately
 
 Additional recommended mitigations should be considered for defense-in-depth approach.
 
@@ -412,6 +523,14 @@ Additional recommended mitigations should be considered for defense-in-depth app
 **SR-SF-005**: Pump minimum OFF time shall be at least 10 minutes to prevent excessive cycling.
 
 **SR-SF-006**: Manual overrides shall bypass safety limits only for pump cycling protection, not temperature limits.
+
+**SR-SF-007**: The system shall detect stale sensor readings by tracking the last update timestamp for each temperature sensor and shall disable heating in that zone if no sensor update has been received within 20 minutes 
+
+20 minutes is deemed not critical for the heating system to run non-stop in any scenario. 
+
+**SR-SF-008**: If a zone pump has been ON continuously for 6 hours or more, the system shall force the pump OFF, disable heating for that zone, and trigger a critical alert. 
+
+This provides defense-in-depth protection against runaway heating scenarios even if all other safety checks fail.
 
 ## 3.4 Integration Requirements
 
@@ -866,6 +985,7 @@ zones:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-01-01 | Claude | Added RISK-013 (Sensor Connection Loss) with critical analysis of stuck reading failure mode; identified gap in current safety requirements; added SR-SF-007 (Sensor Update Watchdog) and SR-SF-008 (Maximum Runtime Safety) to address highest unmitigated risk |
 | 1.1 | 2025-12-27 | Claude | Added comprehensive risk assessment with 12 identified risks, likelihood/severity ratings, mitigations, and safety requirements coverage |
 | 1.0 | 2025-12-27 | Claude | Initial specification document |
 
