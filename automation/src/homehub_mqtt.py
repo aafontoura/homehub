@@ -11,7 +11,7 @@ class AutomationPubSub:
     RECONNECTION_TIMER = 10
     def __init__(self, broker_ip:str, name:str, username:str=None, password:str=None):
         self.name = name
-        self.client= paho.Client(client_id=self.name, clean_session=False)
+        self.client= paho.Client(client_id=self.name, clean_session=True)
         self.client.on_message = self.__on_message
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
@@ -101,9 +101,27 @@ class AutomationPubSub:
         """
         pass  # Default: do nothing
 
-    def on_disconnect(self,client, userdata, message):
-        
-        logging.debug("on_disconnect fired")
+    def on_disconnect(self, client, userdata, rc):
+        logging.debug(f"on_disconnect fired (reason code: {rc})")
+
+        # Log disconnect reason for debugging
+        if rc == 0:
+            logging.info("Clean disconnect from MQTT broker")
+        elif rc == 1:
+            logging.error("MQTT disconnect: Protocol version refused by broker")
+        elif rc == 2:
+            logging.error("MQTT disconnect: Client ID rejected by broker")
+        elif rc == 3:
+            logging.error("MQTT disconnect: Server unavailable")
+        elif rc == 4:
+            logging.error("MQTT disconnect: Bad username or password")
+        elif rc == 5:
+            logging.error("MQTT disconnect: Not authorized")
+        elif rc == 7:
+            logging.warning("MQTT disconnect: Connection lost (network error)")
+        else:
+            logging.warning(f"MQTT disconnect: Unexpected reason code {rc}")
+
         self.reconnect()
 
     def read_config(self, file_path = "config.yaml"):
