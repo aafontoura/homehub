@@ -11,7 +11,7 @@ class AutomationPubSub:
     RECONNECTION_TIMER = 10
     def __init__(self, broker_ip:str, name:str, username:str=None, password:str=None):
         self.name = name
-        self.client= paho.Client(client_id=self.name, clean_session=True)
+        self.client= paho.Client(client_id=self.name, clean_session=False)
         self.client.on_message = self.__on_message
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
