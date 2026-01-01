@@ -279,7 +279,8 @@ class HeatingControl(AutomationPubSub):
                 )
                 zone.current_temp = None  # Treat as unavailable, triggers SR-SF-002 shutdown below
                 self._publish_critical_alert(zone_name, "stale_sensor",
-                    f"No sensor update for {elapsed_minutes:.0f} minutes - heating disabled")
+                    f"No sensor update for {elapsed_minutes:.0f} minutes - heating disabled",
+                    "HEAT-SF-001")
 
             # SR-SF-008: Check for maximum runtime exceeded (RISK-013 Failure Mode B)
             if zone.is_runtime_exceeded():
@@ -292,7 +293,8 @@ class HeatingControl(AutomationPubSub):
                 self._set_pump_state(zone_name, False)
                 zone.current_temp = None  # Disable zone until manual intervention
                 self._publish_critical_alert(zone_name, "runtime_exceeded",
-                    f"Emergency shutdown: pump runtime {runtime_hours:.1f}h exceeded {zone.max_runtime_hours}h limit")
+                    f"Emergency shutdown: pump runtime {runtime_hours:.1f}h exceeded {zone.max_runtime_hours}h limit",
+                    "HEAT-SF-002")
                 logging.debug(f"└" + "─" * 78)
                 zone_status_summary.append(f"{zone_name}: EMERGENCY STOP")
                 continue
@@ -562,16 +564,18 @@ class HeatingControl(AutomationPubSub):
             f"Total runtime: {metrics['boiler_runtime_minutes']:.1f} min"
         )
 
-    def _publish_critical_alert(self, zone_name, alert_type, message):
+    def _publish_critical_alert(self, zone_name, alert_type, message, alert_id):
         """
-        Publish critical safety alert to MQTT (SR-SF-007, SR-SF-008).
+        Publish critical safety alert to MQTT (SR-SF-007, SR-SF-008, SR-AL-001).
 
         Args:
             zone_name: Name of the zone triggering the alert
             alert_type: Type of alert ("stale_sensor" or "runtime_exceeded")
             message: Human-readable alert message
+            alert_id: Unique alert identifier per SR-AL-001 (e.g., "HEAT-SF-001")
         """
         alert_payload = {
+            "alert_id": alert_id,
             "zone": zone_name,
             "alert_type": alert_type,
             "message": message,
@@ -585,7 +589,7 @@ class HeatingControl(AutomationPubSub):
             retain=False  # Don't retain alerts
         )
 
-        logging.critical(f"{zone_name}: CRITICAL ALERT published - {message}")
+        logging.critical(f"{zone_name}: [{alert_id}] CRITICAL ALERT published - {message}")
 
 
 def main():
