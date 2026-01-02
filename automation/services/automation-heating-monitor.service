@@ -1,0 +1,38 @@
+[Unit]
+Description=Heating System Monitor - Sensor Health Monitoring
+After=network.target mosquitto.service
+Wants=network.target automation-heating.service
+# Note: Monitor service runs independently - failure doesn't affect heating control
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/homehub/automation/src
+Environment="MQTT_BROKER_IP=192.168.1.10"
+
+# MQTT Authentication (optional)
+# Method 1: Inline environment variables (less secure, easier for development)
+# Environment="MQTT_USERNAME=your_username"
+# Environment="MQTT_PASSWORD=your_password"
+#
+# Method 2: External environment file (more secure, recommended for production)
+# Create /etc/systemd/system/automation-heating-monitor.service.d/credentials.conf:
+#   [Service]
+#   Environment="MQTT_USERNAME=your_username"
+#   Environment="MQTT_PASSWORD=your_password"
+# Then run: sudo chmod 600 /etc/systemd/system/automation-heating-monitor.service.d/credentials.conf
+#
+# Method 3: Load from .env file (development only)
+# The heating_monitor.py automatically loads from src/.env if python-dotenv is installed
+
+ExecStart=/home/pi/homehub/automation/.venv/bin/python3 /home/pi/homehub/automation/src/heating_monitor.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=heating-monitor
+
+[Install]
+WantedBy=multi-user.target
