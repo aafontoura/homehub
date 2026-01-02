@@ -636,8 +636,8 @@ Home Assistant automation logs. Systemd logs via journalctl.
 | Level | Description | Response Time | Examples |
 |-------|-------------|---------------|----------|
 | **CRITICAL** | Safety risk or complete system failure | Immediate (within 1 hour) | HEAT-SF-001, HEAT-SF-002, HEAT-HW-001, HEAT-SY-001 |
-| **HIGH** | Significant functionality loss | Within 24 hours | HEAT-SF-003, HEAT-SF-004, HEAT-SN-001, HEAT-SN-002, HEAT-HW-002, HEAT-HW-003 |
-| **MEDIUM** | Performance degradation | Within 1 week | HEAT-PR-001, HEAT-PR-002, HEAT-PR-003, HEAT-PR-004 |
+| **HIGH** | Significant functionality loss | Within 24 hours | HEAT-SF-003, HEAT-SF-004, HEAT-SN-001, HEAT-SN-002, HEAT-HW-002, HEAT-HW-003, HEAT-MN-003 |
+| **MEDIUM** | Performance degradation | Within 1 week | HEAT-PR-001, HEAT-PR-002, HEAT-PR-003, HEAT-PR-004, HEAT-MN-001, HEAT-MN-002 |
 | **LOW** | Informational, efficiency impact | When convenient | HEAT-PR-005 |
 
 ---
@@ -694,6 +694,130 @@ ping <shelly_ip>
 
 # Check Shelly MQTT messages
 mosquitto_sub -h 192.168.1.60 -t 'shellies/#' -v
+```
+
+---
+
+### HEAT-MN-001: Battery Low Warning (Medium)
+
+**Severity**: MEDIUM
+**Category**: Monitoring
+**Related Requirement**: RISK-013 mitigation #11
+**MQTT Topic**: `heating/monitor/{zone_name}/alert/battery_low`
+
+**Description**:
+Temperature sensor battery level has dropped below 20%, indicating battery replacement needed soon.
+
+**Trigger Conditions**:
+- Sensor reports battery level < 20%
+- Published by heating_monitor.py service
+
+**Possible Causes**:
+1. **Normal battery depletion**: Typical Zigbee sensor battery lasts 1-2 years
+2. **Cold temperature**: Batteries perform worse in cold environments
+3. **Excessive reporting**: Sensor configured to report too frequently
+4. **Defective battery**: Battery may be faulty or old stock
+5. **Power-hungry sensor**: Some sensors drain batteries faster than others
+
+**Recommended Actions**:
+1. **Purchase replacement battery** (typically CR2032 or AA depending on sensor model)
+2. Check sensor model and battery type in Zigbee2MQTT
+3. Replace battery within 1-2 weeks (before critical failure)
+4. After replacement, verify battery reads 100% in Home Assistant
+5. If battery drains rapidly (<6 months), check sensor firmware version
+6. Monitor sensor reporting interval - reduce if >1 update/minute
+
+**Impact if Ignored**:
+Battery will eventually die, causing HEAT-SN-001 or HEAT-SF-001 (stale sensor) alerts. Room heating will auto-disable per SR-SF-002.
+
+**Logged As**:
+```
+WARNING: [HEAT-MN-001] {zone_name}: BATTERY LOW - X% (threshold: 20%)
+```
+
+---
+
+### HEAT-MN-002: Link Quality Degraded (Medium)
+
+**Severity**: MEDIUM
+**Category**: Monitoring
+**Related Requirement**: RISK-013 mitigation #10
+**MQTT Topic**: `heating/monitor/{zone_name}/alert/lqi_low`
+
+**Description**:
+Zigbee link quality indicator (LQI) has dropped below 100, indicating poor wireless connection between sensor and coordinator.
+
+**Trigger Conditions**:
+- Sensor reports LQI < 100
+- Published by heating_monitor.py service
+
+**Possible Causes**:
+1. **Distance too far**: Sensor at edge of Zigbee network range
+2. **Physical obstruction**: Walls, metal objects, or furniture blocking signal
+3. **Interference**: 2.4GHz WiFi, microwave ovens, or other devices interfering
+4. **Zigbee coordinator issue**: USB stick overheating or failing
+5. **Mesh network issue**: Lost router nodes causing poor routing
+6. **Sensor antenna damage**: Physical damage to sensor's antenna
+
+**Recommended Actions**:
+1. **IMMEDIATE**: Check Zigbee2MQTT dashboard for LQI value and trend
+2. Check sensor distance from coordinator (should be <10m direct line)
+3. Add Zigbee router device closer to sensor (mains-powered Zigbee device)
+4. Move WiFi router to different channel (avoid overlap with Zigbee channel 11/15/20/25/26)
+5. Check for new interference sources near sensor
+6. Verify Zigbee coordinator USB stick is properly seated and cool
+7. Review Zigbee network map in Zigbee2MQTT to check routing
+8. Consider relocating sensor or coordinator
+
+**Impact if Ignored**:
+Sensor may become unreliable, leading to missed updates, stale readings (HEAT-SF-001), or complete sensor failure (HEAT-SN-001). Can cause heating to disable unexpectedly.
+
+**Logged As**:
+```
+WARNING: [HEAT-MN-002] {zone_name}: LQI LOW - X (threshold: 100)
+```
+
+---
+
+### HEAT-MN-003: Sensor Not Reporting (High)
+
+**Severity**: HIGH
+**Category**: Monitoring
+**Related Requirement**: SR-SF-007, RISK-013
+**MQTT Topic**: `heating/monitor/{zone_name}/alert/no_update`
+
+**Description**:
+Temperature sensor has not sent any updates for 30 minutes, indicating potential sensor failure or connectivity issue.
+
+**Trigger Conditions**:
+- No sensor update received for >30 minutes
+- Published by heating_monitor.py service
+- Runs independently of heating_control.py SR-SF-007 (20 minute) check
+
+**Possible Causes**:
+1. **Battery completely dead**: Sensor powered off
+2. **Zigbee network failure**: Coordinator offline or crashed
+3. **Sensor firmware crash**: Device requires power cycle
+4. **Extreme interference**: Complete signal blockage
+5. **Sensor hardware failure**: Permanent device failure
+6. **Physical removal**: Sensor was moved or removed
+
+**Recommended Actions**:
+1. **IMMEDIATE**: Check if HEAT-SF-001 alert also triggered (heating will be disabled)
+2. Check sensor status in Zigbee2MQTT dashboard
+3. Check "Last Seen" timestamp in Home Assistant → Zigbee2MQTT → Devices
+4. Verify Zigbee coordinator is online: `docker ps | grep zigbee2mqtt`
+5. Check Zigbee2MQTT logs: `docker logs zigbee2mqtt --tail 100`
+6. Power cycle sensor (remove/reinsert battery)
+7. If sensor remains offline, replace sensor or re-pair to Zigbee network
+8. **VERIFY**: Heating control disabled for this zone per SR-SF-002
+
+**Impact if Ignored**:
+Heating will already be disabled by heating_control.py SR-SF-007 check after 20 minutes. This is a redundant alert for extra visibility.
+
+**Logged As**:
+```
+WARNING: [HEAT-MN-003] {zone_name}: SENSOR NOT REPORTING - X min (threshold: 30 min)
 ```
 
 ---
