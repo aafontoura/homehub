@@ -123,12 +123,12 @@ class HeatingZone:
                     runtime_hours = (time.time() - self.pump_on_start_time) / 3600
                     logging.info(
                         f"{self.name}: Pump OFF (runtime: {runtime_hours:.2f}h) | "
-                        f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
+                        f"Temp: {self.current_temp}°C, Setpoint: {self.setpoint:.1f}°C"
                     )
                 else:
                     logging.info(
                         f"{self.name}: Pump OFF | "
-                        f"Temp: {self.current_temp:.1f}°C, Setpoint: {self.setpoint:.1f}°C"
+                        f"Temp: {self.current_temp}°C, Setpoint: {self.setpoint:.1f}°C"
                     )
                 self.pump_on_start_time = None
 
