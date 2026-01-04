@@ -24,6 +24,7 @@ from homehub_mqtt import AutomationPubSub
 from heating_zone import HeatingZone
 from pid_controller import PIDController
 from onoff_controller import OnOffController
+from schedule_manager import ScheduleManager, OperatingMode
 
 
 class HeatingControl(AutomationPubSub):
@@ -43,6 +44,10 @@ class HeatingControl(AutomationPubSub):
         for zone_name, zone_config in self.config['zones'].items():
             self.zones[zone_name] = HeatingZone(zone_name, zone_config)
             logging.info(f"Initialized zone: {zone_name}")
+
+        # Initialize schedule manager
+        self.schedule_manager = ScheduleManager(self.config)
+        logging.info("ScheduleManager initialized")
 
         # Boiler state
         self.boiler_active = False
@@ -85,7 +90,11 @@ class HeatingControl(AutomationPubSub):
         for zone_name in self.zones.keys():
             topics.append(f"heating/{zone_name}/setpoint/set")
 
-        # Heating mode control
+        # Operating mode control (per-zone)
+        for zone_name in self.zones.keys():
+            topics.append(f"heating/{zone_name}/mode/set")
+
+        # Legacy global mode control (deprecated, kept for backwards compatibility)
         topics.append("heating/mode/set")
 
         self._subscribe_to_topics(topics)
@@ -172,17 +181,30 @@ class HeatingControl(AutomationPubSub):
                     logging.debug(f"Outside temperature: {temp}°C")
                 return
 
-            # Manual setpoint overrides
+            # Manual setpoint overrides (DEPRECATED - use mode=manual instead)
             if '/setpoint/set' in topic:
                 zone_name = topic.split('/')[1]
                 if zone_name in self.zones:
                     setpoint = float(payload) if isinstance(payload, (int, float)) else float(payload.get('setpoint', 20))
-                    zone = self.zones[zone_name]
-                    zone.update_setpoint(setpoint)
-                    logging.info(f"Manual setpoint for {zone_name}: {setpoint}°C")
+                    # Set mode to MANUAL with the specified setpoint
+                    self.schedule_manager.set_zone_mode(
+                        zone_name=zone_name,
+                        mode=OperatingMode.MANUAL,
+                        manual_setpoint=setpoint
+                    )
+                    logging.info(f"Manual setpoint for {zone_name}: {setpoint}°C (mode set to MANUAL)")
+                    self._publish_schedule_state(zone_name)
                 return
 
-            # Heating mode
+            # Per-zone operating mode control
+            if '/mode/set' in topic and topic != "heating/mode/set":
+                zone_name = topic.split('/')[1]
+                if zone_name in self.zones:
+                    self._handle_zone_mode_change(zone_name, payload)
+                    self._publish_schedule_state(zone_name)
+                return
+
+            # Legacy global mode control (deprecated)
             if topic == "heating/mode/set":
                 mode = payload if isinstance(payload, str) else payload.get('mode', 'auto')
                 self._handle_mode_change(mode)
@@ -208,10 +230,88 @@ class HeatingControl(AutomationPubSub):
         return None
 
     def _handle_mode_change(self, mode):
-        """Handle heating mode changes (auto, off, manual)"""
-        logging.info(f"Heating mode changed to: {mode}")
-        # Implementation depends on requirements
-        pass
+        """
+        Handle legacy global heating mode changes (deprecated).
+
+        This method is kept for backwards compatibility but should be replaced
+        with per-zone mode control using heating/{zone_name}/mode/set topics.
+        """
+        logging.warning(f"Legacy global mode change to '{mode}' (deprecated - use per-zone mode control)")
+        # Apply mode to all zones
+        for zone_name in self.zones.keys():
+            try:
+                operating_mode = OperatingMode(mode.lower())
+                self.schedule_manager.set_zone_mode(zone_name, operating_mode)
+                self._publish_schedule_state(zone_name)
+            except ValueError:
+                logging.error(f"Invalid operating mode: {mode}")
+
+    def _handle_zone_mode_change(self, zone_name: str, payload):
+        """
+        Handle per-zone operating mode changes.
+
+        Payload format:
+            {"mode": "auto|manual|away|vacation|off|boost", "setpoint": 21.0, "duration_hours": 2.0}
+
+        Or simple string:
+            "auto", "manual", "away", etc.
+        """
+        try:
+            # Parse payload
+            if isinstance(payload, str):
+                mode_str = payload.lower()
+                manual_setpoint = None
+                boost_duration = None
+            elif isinstance(payload, dict):
+                mode_str = payload.get('mode', 'auto').lower()
+                manual_setpoint = payload.get('setpoint')
+                boost_duration = payload.get('duration_hours')
+            else:
+                logging.error(f"{zone_name}: Invalid mode payload format: {payload}")
+                return
+
+            # Convert to OperatingMode enum
+            try:
+                mode = OperatingMode(mode_str)
+            except ValueError:
+                logging.error(f"{zone_name}: Invalid operating mode: {mode_str}")
+                return
+
+            # Set the mode
+            self.schedule_manager.set_zone_mode(
+                zone_name=zone_name,
+                mode=mode,
+                manual_setpoint=manual_setpoint,
+                boost_duration_hours=boost_duration
+            )
+
+            logging.info(f"{zone_name}: Mode changed to {mode.value}" +
+                        (f" (setpoint: {manual_setpoint}°C)" if manual_setpoint else "") +
+                        (f" (duration: {boost_duration}h)" if boost_duration else ""))
+
+        except Exception as e:
+            logging.error(f"{zone_name}: Error handling mode change: {e}", exc_info=True)
+
+    def _publish_schedule_state(self, zone_name: str):
+        """
+        Publish current schedule/mode state for a zone to MQTT.
+
+        Published to: heating/{zone_name}/schedule/state
+
+        Payload includes:
+        - mode: Current operating mode
+        - effective_setpoint: Calculated setpoint considering mode and schedule
+        - manual_setpoint: Manual setpoint (if in Manual/Boost mode)
+        - boost_expires_at: Boost expiry timestamp (if in Boost mode)
+        - schedule_active: Whether schedule is currently being followed
+        """
+        try:
+            state = self.schedule_manager.get_zone_state(zone_name)
+            topic = f"heating/{zone_name}/schedule/state"
+            self.client.publish(topic, json.dumps(state), qos=1, retain=True)
+            logging.debug(f"{zone_name}: Published schedule state: {state}")
+        except Exception as e:
+            logging.error(f"{zone_name}: Error publishing schedule state: {e}", exc_info=True)
 
     def _start_control_loop(self):
         """Start the main control loop after initialization delay"""
@@ -305,8 +405,34 @@ class HeatingControl(AutomationPubSub):
                 logging.debug(f"└" + "─" * 78)
                 # Still publish climate state (will show current state even without temp)
                 self._publish_climate_state(zone_name)
+                # Publish schedule state
+                self._publish_schedule_state(zone_name)
                 zone_status_summary.append(f"{zone_name}: NO DATA")
                 continue
+
+            # SR-SCH-001: Get effective setpoint from ScheduleManager
+            # This considers current operating mode and schedule
+            effective_setpoint = self.schedule_manager.get_effective_setpoint(zone_name)
+
+            # SR-SCH-002: Handle OFF mode (heating disabled)
+            if effective_setpoint is None:
+                mode = self.schedule_manager.get_zone_mode(zone_name)
+                logging.debug(f"│ 🛑 Heating disabled (mode: {mode.value if mode else 'unknown'})")
+                # Force pump OFF
+                self._set_pump_state(zone_name, False)
+                logging.debug(f"└" + "─" * 78)
+                # Publish states
+                self._publish_climate_state(zone_name)
+                self._publish_schedule_state(zone_name)
+                zone_status_summary.append(f"{zone_name}: OFF")
+                continue
+
+            # Update zone setpoint (for controller and MQTT publishing)
+            zone.update_setpoint(effective_setpoint)
+
+            # Log schedule information
+            mode = self.schedule_manager.get_zone_mode(zone_name)
+            logging.debug(f"│ 📅 Schedule | Mode: {mode.value if mode else 'unknown'} | Setpoint: {effective_setpoint}°C")
 
             # Calculate temperature error
             temp_error = zone.setpoint - zone.current_temp
@@ -343,6 +469,9 @@ class HeatingControl(AutomationPubSub):
 
             # Publish climate state for thermostat interface (Part 1)
             self._publish_climate_state(zone_name)
+
+            # Publish schedule state (SR-SCH-005: MQTT control interface)
+            self._publish_schedule_state(zone_name)
 
             # Publish metrics for historical analysis and InfluxDB
             self._publish_zone_metrics(zone_name, temp_error, duty_cycle)

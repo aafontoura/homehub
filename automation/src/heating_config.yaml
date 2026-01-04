@@ -15,6 +15,14 @@ outside_temperature_topic: "zigbee2mqtt/Outdoor Sensor"
 control_interval_seconds: 30  # How often to run control loop (30 sec)
 heartbeat_interval_seconds: 300  # Heartbeat every 5 minutes (must be < Shelly auto-off of 10 min)
 
+# Scheduling Settings
+scheduling:
+  enabled: true  # Enable/disable scheduling globally
+  persistence_file: "heating_schedule_state.json"  # File to persist mode/boost state
+  default_boost_duration_hours: 2.0  # Default Boost mode duration
+  away_offset_celsius: -3.0  # Temperature offset for Away mode (e.g., -3°C)
+  vacation_setpoint: 10.0  # Freeze protection setpoint for Vacation mode (°C)
+
 # Heating Zones Configuration
 zones:
   ground_floor:
@@ -43,6 +51,29 @@ zones:
     # ON/OFF Controller Tuning (only used if controller_type = "onoff")
     hysteresis: 0.2  # Temperature dead-band in °C (prevents rapid cycling)
 
+    # Weekly Schedule (used when operating mode is AUTO or AWAY)
+    schedule:
+      weekdays:  # Monday to Friday
+        - start: "06:00"
+          end: "08:00"
+          setpoint: 21.0
+        - start: "08:00"
+          end: "17:00"
+          setpoint: 18.0
+        - start: "17:00"
+          end: "22:00"
+          setpoint: 21.0
+        - start: "22:00"
+          end: "06:00"
+          setpoint: 18.0
+      weekends:  # Saturday and Sunday
+        - start: "07:00"
+          end: "23:00"
+          setpoint: 21.0
+        - start: "23:00"
+          end: "07:00"
+          setpoint: 18.0
+
   first_floor:
     # Temperature Sensor
     temperature_sensor_topic: "zigbee2mqtt/First Floor Sensor"
@@ -65,6 +96,26 @@ zones:
 
     # ON/OFF Controller Tuning (only used if controller_type = "onoff")
     hysteresis: 0.2  # Temperature dead-band in °C (prevents rapid cycling)
+
+    # Weekly Schedule (used when operating mode is AUTO or AWAY)
+    schedule:
+      weekdays:  # Monday to Friday
+        - start: "06:00"
+          end: "08:00"
+          setpoint: 20.0
+        - start: "08:00"
+          end: "22:00"
+          setpoint: 18.0
+        - start: "22:00"
+          end: "06:00"
+          setpoint: 17.0
+      weekends:  # Saturday and Sunday
+        - start: "07:00"
+          end: "23:00"
+          setpoint: 20.0
+        - start: "23:00"
+          end: "07:00"
+          setpoint: 17.0
 
 ###############################################################################
 # PID Tuning Guidelines
