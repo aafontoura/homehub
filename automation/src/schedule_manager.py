@@ -53,10 +53,22 @@ class TimeBlock:
         """
         if self.start_time <= self.end_time:
             # Normal case: block within same day
-            return self.start_time <= check_time < self.end_time
+            result = self.start_time <= check_time < self.end_time
+            logging.debug(
+                f"    TimeBlock check: {check_time.strftime('%H:%M')} in "
+                f"{self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')} "
+                f"(setpoint: {self.setpoint}°C) = {result}"
+            )
+            return result
         else:
             # Block crosses midnight (e.g., 22:00-06:00)
-            return check_time >= self.start_time or check_time < self.end_time
+            result = check_time >= self.start_time or check_time < self.end_time
+            logging.debug(
+                f"    TimeBlock check (midnight-crossing): {check_time.strftime('%H:%M')} in "
+                f"{self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')} "
+                f"(setpoint: {self.setpoint}°C) = {result}"
+            )
+            return result
 
     def __repr__(self):
         return f"TimeBlock({self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')}: {self.setpoint}°C)"
@@ -92,9 +104,15 @@ class Schedule:
         blocks = self.weekend_blocks if is_weekend else self.weekday_blocks
         current_time = dt.time()
 
+        logging.debug(
+            f"  Schedule lookup: {dt.strftime('%A %H:%M')} "
+            f"(weekday={dt.weekday()}, is_weekend={is_weekend}, checking {len(blocks)} blocks)"
+        )
+
         # Find matching time block
         for block in blocks:
             if block.contains(current_time):
+                logging.debug(f"  ✓ Found matching block → setpoint={block.setpoint}°C")
                 return block.setpoint
 
         # No matching block found
@@ -370,6 +388,8 @@ class ScheduleManager:
                 f"Weekday blocks: {len(weekday_blocks)}, "
                 f"Weekend blocks: {len(weekend_blocks)}"
             )
+            logging.debug(f"{zone_name}: Weekday blocks: {weekday_blocks}")
+            logging.debug(f"{zone_name}: Weekend blocks: {weekend_blocks}")
 
     def get_effective_setpoint(self, zone_name: str, current_time: Optional[datetime] = None) -> Optional[float]:
         """
@@ -412,6 +432,11 @@ class ScheduleManager:
             current_time=current_time,
             away_offset=self.away_offset,
             vacation_setpoint=self.vacation_setpoint
+        )
+
+        logging.debug(
+            f"{zone_name}: Effective setpoint calculation → "
+            f"mode={mode_manager.current_mode.value}, setpoint={setpoint}°C"
         )
 
         return setpoint
