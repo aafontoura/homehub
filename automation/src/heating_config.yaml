@@ -33,8 +33,8 @@ zones:
     pump_control_topic: "zigbee2mqtt/Pump UFH Ground Floor"
 
     # Setpoints
-    default_setpoint: 20.0  # Default target temperature (°C)
-    min_setpoint: 18.0      # Minimum allowed setpoint
+    default_setpoint: 19.0  # Default target temperature (°C)
+    min_setpoint: 10.0      # Minimum allowed setpoint
     max_setpoint: 23.0      # Maximum allowed setpoint
 
     # Controller Type: "pid" or "onoff"
