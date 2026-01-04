@@ -604,13 +604,16 @@ class HeatingControl(AutomationPubSub):
                 retain=True
             )
 
-        # Publish target temperature (setpoint)
-        self.client.publish(
-            f"heating/{zone_name}/climate/setpoint",
-            str(zone.setpoint),
-            qos=1,
-            retain=True
-        )
+        # Publish target temperature (setpoint from schedule manager)
+        # Get effective setpoint from schedule manager to ensure it reflects current mode/schedule
+        effective_setpoint = self.schedule_manager.get_effective_setpoint(zone_name)
+        if effective_setpoint is not None:
+            self.client.publish(
+                f"heating/{zone_name}/climate/setpoint",
+                str(effective_setpoint),
+                qos=1,
+                retain=True
+            )
 
         # Publish HVAC mode
         # For Part 1, mode is always "heat" - the input_boolean controls actual heating
