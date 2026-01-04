@@ -54,25 +54,19 @@ zones:
     # Weekly Schedule (used when operating mode is AUTO or AWAY)
     schedule:
       weekdays:  # Monday to Friday
-        - start: "06:00"
-          end: "08:00"
-          setpoint: 21.0
         - start: "08:00"
-          end: "17:00"
-          setpoint: 18.0
-        - start: "17:00"
-          end: "22:00"
-          setpoint: 21.0
-        - start: "22:00"
-          end: "06:00"
-          setpoint: 18.0
+          end: "21:00"
+          setpoint: 19.0
+        - start: "21:00"
+          end: "08:00"
+          setpoint: 16.0
       weekends:  # Saturday and Sunday
-        - start: "07:00"
+        - start: "09:30"
           end: "23:00"
-          setpoint: 21.0
+          setpoint: 19.0
         - start: "23:00"
-          end: "07:00"
-          setpoint: 18.0
+          end: "09:30"
+          setpoint: 16.0
 
   first_floor:
     # Temperature Sensor
@@ -100,22 +94,19 @@ zones:
     # Weekly Schedule (used when operating mode is AUTO or AWAY)
     schedule:
       weekdays:  # Monday to Friday
-        - start: "06:00"
-          end: "08:00"
-          setpoint: 20.0
         - start: "08:00"
-          end: "22:00"
-          setpoint: 18.0
-        - start: "22:00"
-          end: "06:00"
-          setpoint: 17.0
+          end: "21:00"
+          setpoint: 17.5
+        - start: "21:00"
+          end: "08:00"
+          setpoint: 16.0
       weekends:  # Saturday and Sunday
-        - start: "07:00"
+        - start: "09:30"
           end: "23:00"
-          setpoint: 20.0
+          setpoint: 17.5
         - start: "23:00"
-          end: "07:00"
-          setpoint: 17.0
+          end: "09:30"
+          setpoint: 16.0
 
 ###############################################################################
 # PID Tuning Guidelines
