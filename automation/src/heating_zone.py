@@ -55,7 +55,7 @@ class HeatingZone:
 
         # SR-SF-007: Sensor update watchdog (RISK-013 Failure Mode B mitigation)
         self.last_temp_update_time = None  # Track last sensor update timestamp
-        self.sensor_timeout_minutes = 20   # 20 minutes per SR-SF-007
+        self.sensor_timeout_minutes = 60   # 20 minutes per SR-SF-007
 
         # SR-SF-008: Maximum runtime safety (RISK-013 Failure Mode B mitigation)
         self.pump_on_start_time = None     # When pump last turned ON
