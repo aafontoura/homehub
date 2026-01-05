@@ -1,7 +1,7 @@
 ---
 services:
   homeassistant:
-    image: homeassistant/home-assistant:2025.11.2
+    image: homeassistant/home-assistant:2025.12.5
     container_name: homeassistant
     network_mode: host
     restart: unless-stopped
