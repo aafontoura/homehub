@@ -1,0 +1,53 @@
+// MQTT Boiler Watchdog for Shelly 1 Gen4
+
+let CONFIG = {
+  TIMEOUT_MS: 630000,                       // 10 minutes and 30 seconds
+  RELAY_ID: 0,                              // output 0
+  HEARTBEAT_TOPIC: "boiler_heat_request/heartbeat"
+};
+
+let watchdogTimer = null;
+
+function resetWatchdog() {
+  if (watchdogTimer !== null) {
+    Timer.clear(watchdogTimer);
+  }
+
+  watchdogTimer = Timer.set(
+    CONFIG.TIMEOUT_MS,
+    false,
+    function() {
+      print("Watchdog timeout - turning OFF relay");
+      Shelly.call("Switch.Set", { id: CONFIG.RELAY_ID, on: false });
+    }
+  );
+
+  print("Watchdog timer reset: ",{time: CONFIG.TIMEOUT_MS} );
+}
+
+// Reset watchdog on every heartbeat message
+MQTT.subscribe(CONFIG.HEARTBEAT_TOPIC, function(topic, message) {
+  print("Heartbeat received:", topic, "payload:", message);
+  resetWatchdog();
+});
+
+Shelly.addEventHandler(function (ev, data) {
+  // ev is an object with "info", not a simple string
+  if (ev && ev.info && ev.info.component === "switch:0") {
+    if (ev.info.event === "toggle" && ev.info.state === true) {
+      print("Relay toggled ON via", ev.info.component, "- resetting watchdog");
+      resetWatchdog();
+    }
+  }
+});
+
+
+// On script start, start watchdog if relay already ON
+Shelly.call("Switch.GetStatus", { id: CONFIG.RELAY_ID }, function(result) {
+  if (result.output === true) {
+    print("Relay already on - starting watchdog");
+    resetWatchdog();
+  } else {
+    print("Boiler MQTT watchdog script started, relay off");
+  }
+});
