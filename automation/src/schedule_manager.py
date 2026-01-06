@@ -16,6 +16,7 @@ from typing import Optional, Dict, List
 class OperatingMode(Enum):
     """Operating modes for heating zones"""
     AUTO = "auto"  # Follow weekly schedule
+    COMFORT = "comfort"  # Schedule with positive offset (e.g., +1°C)
     MANUAL = "manual"  # Custom setpoint, no schedule
     AWAY = "away"  # Schedule with offset (e.g., -3°C)
     VACATION = "vacation"  # Freeze protection (e.g., 10°C)
@@ -155,6 +156,7 @@ class ModeManager:
         self,
         schedule: Schedule,
         current_time: datetime,
+        comfort_offset: float,
         away_offset: float,
         vacation_setpoint: float
     ) -> Optional[float]:
@@ -164,6 +166,7 @@ class ModeManager:
         Args:
             schedule: Zone schedule
             current_time: Current datetime
+            comfort_offset: Temperature offset for Comfort mode (e.g., +1.0)
             away_offset: Temperature offset for Away mode (e.g., -3.0)
             vacation_setpoint: Freeze protection setpoint (e.g., 10.0)
 
@@ -196,8 +199,15 @@ class ModeManager:
         elif self.current_mode == OperatingMode.VACATION:
             return vacation_setpoint
 
+        elif self.current_mode == OperatingMode.COMFORT:
+            # Get scheduled setpoint and apply positive offset
+            scheduled_setpoint = schedule.get_setpoint_for_time(current_time)
+            if scheduled_setpoint is not None:
+                return scheduled_setpoint + comfort_offset
+            return None
+
         elif self.current_mode == OperatingMode.AWAY:
-            # Get scheduled setpoint and apply offset
+            # Get scheduled setpoint and apply negative offset
             scheduled_setpoint = schedule.get_setpoint_for_time(current_time)
             if scheduled_setpoint is not None:
                 return scheduled_setpoint + away_offset
@@ -334,7 +344,8 @@ class ScheduleManager:
         scheduling_config = config.get('scheduling', {})
         self.enabled = scheduling_config.get('enabled', True)
         self.persistence_file = scheduling_config.get('persistence_file', 'heating_schedule_state.json')
-        self.default_boost_duration_hours = scheduling_config.get('default_boost_duration_hours', 2.0)
+        self.default_boost_duration_hours = scheduling_config.get('boost_default_duration_hours', 2.0)
+        self.comfort_offset = scheduling_config.get('comfort_offset_celsius', 1.0)
         self.away_offset = scheduling_config.get('away_offset_celsius', -3.0)
         self.vacation_setpoint = scheduling_config.get('vacation_setpoint', 10.0)
 
@@ -343,6 +354,7 @@ class ScheduleManager:
 
         logging.info("ScheduleManager initialized")
         logging.info(f"Scheduling enabled: {self.enabled}")
+        logging.info(f"Comfort offset: {self.comfort_offset}°C")
         logging.info(f"Away offset: {self.away_offset}°C")
         logging.info(f"Vacation setpoint: {self.vacation_setpoint}°C")
         logging.info(f"Loaded schedules for {len(self.schedules)} zones")
@@ -430,6 +442,7 @@ class ScheduleManager:
         setpoint = mode_manager.get_effective_setpoint(
             schedule=schedule,
             current_time=current_time,
+            comfort_offset=self.comfort_offset,
             away_offset=self.away_offset,
             vacation_setpoint=self.vacation_setpoint
         )
@@ -494,7 +507,7 @@ class ScheduleManager:
             'manual_setpoint': mode_manager.manual_setpoint,
             'boost_expires_at': mode_manager.boost_expires_at.isoformat() if mode_manager.boost_expires_at else None,
             'previous_mode': mode_manager.previous_mode.value if mode_manager.previous_mode else None,
-            'schedule_active': mode_manager.current_mode in [OperatingMode.AUTO, OperatingMode.AWAY]
+            'schedule_active': mode_manager.current_mode in [OperatingMode.AUTO, OperatingMode.COMFORT, OperatingMode.AWAY]
         }
 
         return state

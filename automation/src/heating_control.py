@@ -94,6 +94,10 @@ class HeatingControl(AutomationPubSub):
         for zone_name in self.zones.keys():
             topics.append(f"heating/{zone_name}/mode/set")
 
+        # Climate preset mode control (per-zone)
+        for zone_name in self.zones.keys():
+            topics.append(f"heating/{zone_name}/climate/preset/set")
+
         # Legacy global mode control (deprecated, kept for backwards compatibility)
         topics.append("heating/mode/set")
 
@@ -204,6 +208,15 @@ class HeatingControl(AutomationPubSub):
                     self._publish_schedule_state(zone_name)
                 return
 
+            # Climate preset mode control (new standard method)
+            if '/climate/preset/set' in topic:
+                zone_name = topic.split('/')[1]
+                if zone_name in self.zones:
+                    self._handle_preset_change(zone_name, payload)
+                    self._publish_schedule_state(zone_name)
+                    self._publish_climate_preset(zone_name)
+                return
+
             # Legacy global mode control (deprecated)
             if topic == "heating/mode/set":
                 mode = payload if isinstance(payload, str) else payload.get('mode', 'auto')
@@ -291,6 +304,77 @@ class HeatingControl(AutomationPubSub):
 
         except Exception as e:
             logging.error(f"{zone_name}: Error handling mode change: {e}", exc_info=True)
+
+    def _handle_preset_change(self, zone_name: str, payload):
+        """
+        Handle climate preset mode changes (new standard method).
+
+        Preset mapping:
+            "none" -> No specific mode (stays in current mode)
+            "home" -> AUTO (follow schedule)
+            "comfort" -> COMFORT (schedule + offset)
+            "away" -> AWAY (schedule - 3°C)
+            "eco" -> VACATION (10°C freeze protection)
+            "boost" -> BOOST (temporary override with timer)
+
+        Payload: string preset name (e.g., "home", "comfort", "boost")
+        """
+        try:
+            # Parse payload
+            if isinstance(payload, str):
+                preset_str = payload.lower()
+            else:
+                logging.error(f"{zone_name}: Invalid preset payload format: {payload}")
+                return
+
+            # Map preset to OperatingMode
+            preset_to_mode = {
+                "none": None,  # No change
+                "home": OperatingMode.AUTO,
+                "comfort": OperatingMode.COMFORT,
+                "away": OperatingMode.AWAY,
+                "eco": OperatingMode.VACATION,
+                "boost": OperatingMode.BOOST,
+            }
+
+            if preset_str not in preset_to_mode:
+                logging.error(f"{zone_name}: Unknown preset: {preset_str}")
+                return
+
+            mode = preset_to_mode[preset_str]
+            if mode is None:
+                logging.info(f"{zone_name}: Preset 'none' - no mode change")
+                return
+
+            # Handle boost mode specially - needs setpoint and expiry
+            if mode == OperatingMode.BOOST:
+                # Get default boost setpoint from current schedule + comfort offset
+                current_setpoint = self.schedule_manager.get_effective_setpoint(zone_name)
+                boost_setpoint = (current_setpoint or 21.0) + 2.0  # Boost = current + 2°C
+
+                # Use default duration (2h)
+                boost_duration = self.config.get('scheduling', {}).get('boost_default_duration_hours', 2.0) if self.config else 2.0
+
+                self.schedule_manager.set_zone_mode(
+                    zone_name=zone_name,
+                    mode=mode,
+                    manual_setpoint=boost_setpoint,
+                    boost_duration_hours=boost_duration
+                )
+
+                logging.info(f"{zone_name}: Preset changed to {preset_str} " +
+                            f"(boost setpoint: {boost_setpoint}°C, duration: {boost_duration}h)")
+            else:
+                # Other presets don't need setpoint/duration
+                self.schedule_manager.set_zone_mode(
+                    zone_name=zone_name,
+                    mode=mode
+                )
+
+                logging.info(f"{zone_name}: Preset changed to {preset_str} (mode: {mode.value})")
+
+        except Exception as e:
+            logging.error(f"{zone_name}: Error handling preset change: {e}", exc_info=True)
 
     def _publish_schedule_state(self, zone_name: str):
         """
@@ -469,6 +553,7 @@ class HeatingControl(AutomationPubSub):
 
             # Publish climate state for thermostat interface (Part 1)
             self._publish_climate_state(zone_name)
+            self._publish_climate_preset(zone_name)
 
             # Publish schedule state (SR-SCH-005: MQTT control interface)
             self._publish_schedule_state(zone_name)
@@ -633,6 +718,47 @@ class HeatingControl(AutomationPubSub):
             qos=1,
             retain=True
         )
+
+    def _publish_climate_preset(self, zone_name):
+        """
+        Publish current preset mode to MQTT for climate entity.
+
+        Maps OperatingMode to climate preset:
+            AUTO -> "home"
+            COMFORT -> "comfort"
+            AWAY -> "away"
+            VACATION -> "eco"
+            BOOST -> "boost"
+            MANUAL -> "none"
+            OFF -> "none"
+        """
+        # Get current operating mode
+        current_mode = self.schedule_manager.get_zone_mode(zone_name)
+        if current_mode is None:
+            return
+
+        # Map OperatingMode to preset
+        mode_to_preset = {
+            OperatingMode.AUTO: "home",
+            OperatingMode.COMFORT: "comfort",
+            OperatingMode.AWAY: "away",
+            OperatingMode.VACATION: "eco",
+            OperatingMode.BOOST: "boost",
+            OperatingMode.MANUAL: "none",
+            OperatingMode.OFF: "none",
+        }
+
+        preset = mode_to_preset.get(current_mode, "none")
+
+        # Publish preset state
+        self.client.publish(
+            f"heating/{zone_name}/climate/preset",
+            preset,
+            qos=1,
+            retain=True
+        )
+
+        logging.debug(f"{zone_name}: Published climate preset: {preset} (mode: {current_mode.value})")
 
     def _publish_zone_metrics(self, zone_name, temp_error, duty_cycle):
         """

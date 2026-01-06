@@ -19,9 +19,10 @@ heartbeat_interval_seconds: 300  # Heartbeat every 5 minutes (must be < Shelly a
 scheduling:
   enabled: true  # Enable/disable scheduling globally
   persistence_file: "heating_schedule_state.json"  # File to persist mode/boost state
-  default_boost_duration_hours: 2.0  # Default Boost mode duration
+  comfort_offset_celsius: 1.0  # Temperature offset for Comfort preset (e.g., +1°C)
   away_offset_celsius: -3.0  # Temperature offset for Away mode (e.g., -3°C)
   vacation_setpoint: 10.0  # Freeze protection setpoint for Vacation mode (°C)
+  boost_default_duration_hours: 2.0  # Default Boost mode duration (hours from now)
 
 # Heating Zones Configuration
 zones:
