@@ -1,6 +1,6 @@
 # Heating System Specification
-**Version**: 1.0
-**Date**: 2025-12-27
+**Version**: 1.1
+**Date**: 2026-01-07
 **System**: Python-based PID Heating Control with Home Assistant Integration
 
 ---
@@ -458,11 +458,19 @@ Additional recommended mitigations should be considered for defense-in-depth app
 
 **UR-CA-004**: The system shall respond to manual setpoint changes immediately, bypassing normal pump cycling protection.
 
-**UR-CA-005**: The heating system shall be available as a typical thermostaat control for the user with setpoint, current temperature, mode, schedules. 
+**UR-CA-005**: The heating system shall be available as a typical thermostat control for the user with setpoint, current temperature, HVAC mode, preset modes, and schedules.
 
 **UR-CA-006**: The heating system shall follow schedules defined by the user including time of the day with different setpoints for weekdays and weekends.
 
-**UR-CA-007**: The heating system shall follow mode selected by the user including vacation, off (frozing protection), follow schedule, custom setpoint for X hours. 
+**UR-CA-007**: The heating system shall follow preset mode selected by the user via the climate entity UI:
+- **home**: Follow the weekly schedule automatically
+- **comfort**: Follow schedule with +1°C offset for slightly warmer temperature
+- **away**: Follow schedule with -3°C offset for energy savings when away
+- **eco**: Freeze protection at 10°C for vacation/extended absence
+- **boost**: Temporary manual override that reverts to previous mode after 2 hours
+- **none**: No preset active (MANUAL or OFF mode)
+
+**UR-CA-008**: When the user manually adjusts the temperature setpoint in the climate card, the system shall automatically activate boost mode for 2 hours, providing an intuitive "temporary override" user experience similar to commercial smart thermostats (Nest, Ecobee). 
 
 
 
@@ -575,6 +583,55 @@ This provides defense-in-depth protection against runaway heating scenarios even
 
 **SR-AL-002**: Alert IDs shall be included in all MQTT alert payloads and Home Assistant notification messages for easy identification and troubleshooting.
 
+## 3.8 Scheduling Requirements
+
+**SR-SCH-001**: The system shall support weekly scheduling with per-zone time blocks that define setpoints for different times of day, with separate schedules for weekdays (Monday-Friday) and weekends (Saturday-Sunday).
+
+**SR-SCH-002**: The system shall support seven operating modes per zone:
+- **AUTO**: Follow the weekly schedule
+- **COMFORT**: Follow schedule with a configurable positive temperature offset (e.g., +1°C for slightly warmer comfort)
+- **MANUAL**: Use a fixed setpoint indefinitely (bypass schedule)
+- **AWAY**: Follow schedule with a configurable negative temperature offset (e.g., -3°C for energy savings)
+- **VACATION**: Freeze protection mode with a fixed minimum temperature (e.g., 10°C)
+- **OFF**: Heating completely disabled for the zone
+- **BOOST**: Temporary manual override with automatic revert to previous mode after a configurable duration
+
+**SR-SCH-003**: The system shall support manual setpoint overrides in MANUAL and BOOST modes that take precedence over the weekly schedule.
+
+**SR-SCH-004**: The system shall persist operating mode state, manual setpoints, and boost expiry times across system restarts using JSON file storage.
+
+**SR-SCH-005**: The system shall provide an MQTT control interface for:
+- Changing operating modes per zone (`heating/{zone_name}/mode/set`)
+- Changing preset modes via climate entity (`heating/{zone_name}/climate/preset/set`)
+- Specifying manual setpoints for MANUAL and BOOST modes
+- Setting boost duration in hours for BOOST mode
+- Publishing current mode state to MQTT (`heating/{zone_name}/schedule/state`)
+- Publishing current preset state to MQTT (`heating/{zone_name}/climate/preset`)
+
+**SR-SCH-006**: Time blocks shall support midnight-crossing schedules (e.g., 22:00-06:00 for overnight heating).
+
+**SR-SCH-007**: BOOST mode shall automatically revert to the previous operating mode when the configured duration expires.
+
+**SR-SCH-008**: The system shall validate that effective setpoints from the scheduler are within the zone's configured min/max setpoint limits before applying them to the controller.
+
+**SR-SCH-009**: The system shall expose operating modes as Home Assistant climate entity presets using standard names:
+- **home**: AUTO mode (follow schedule)
+- **comfort**: COMFORT mode (schedule + offset)
+- **away**: AWAY mode (schedule - 3°C)
+- **eco**: VACATION mode (freeze protection)
+- **boost**: BOOST mode (temporary override)
+- **none**: No preset active (MANUAL or OFF mode)
+
+**SR-SCH-010**: When a user manually adjusts the climate entity setpoint via the Home Assistant UI, the system shall automatically:
+- Switch to BOOST preset mode
+- Set the boost expiry to 2 hours from the adjustment time
+- Apply the user's chosen setpoint
+- Allow the user to modify the expiry datetime via the `input_datetime` helper if desired
+
+**SR-SCH-011**: The COMFORT mode offset and AWAY mode offset shall be configurable via `heating_config.yaml`:
+- `comfort_offset_celsius` (default: 1.0°C)
+- `away_offset_celsius` (default: -3.0°C)
+
 
 ---
 
@@ -584,12 +641,16 @@ This provides defense-in-depth protection against runaway heating scenarios even
 
 **SD-AR-001**: The system shall use a three-layer architecture:
 - **Infrastructure Layer**: Docker containers (Home Assistant, MQTT, Zigbee2MQTT)
-- **Automation Layer**: Python MQTT client running as systemd service
+- **Automation Layer**: Python MQTT clients running as systemd services
+  - `heating_control.py` - Temperature control and pump management
+  - `heating_monitor.py` - Independent sensor health monitoring
 - **Presentation Layer**: Home Assistant Lovelace dashboard (YAML mode)
 
 **SD-AR-002**: Communication between layers shall use MQTT publish/subscribe pattern.
 
 **SD-AR-003**: The Python automation layer shall be autonomous and continue operating if Home Assistant becomes unavailable.
+
+**SD-AR-004**: The monitoring service (`heating_monitor.py`) shall run independently from the heating control service (`heating_control.py`) to ensure fault isolation - a monitoring service crash shall not affect temperature control operations.
 
 ## 3.2 Component Design
 
@@ -703,7 +764,50 @@ output = Kp * error + Ki * integral + Kd * derivative
 
 **SD-BC-004**: The boiler control relay shall use MQTT topic `zigbee2mqtt/Boiler Heat Request Switch/set` with payload `{"state": "ON"}` or `{"state": "OFF"}`.
 
-### 3.2.6 MQTT Topic Structure
+### 3.2.6 Sensor Health Monitoring Service
+
+**SD-MN-001**: The system shall include an independent monitoring service (`heating_monitor.py`) that tracks sensor health metrics for proactive maintenance.
+
+**SD-MN-002**: The monitoring service shall subscribe only to the specific temperature sensor topics defined in `heating_config.yaml` (extracting `temperature_sensor_topic` from each zone configuration).
+
+**SD-MN-003**: The monitoring service shall track the following health metrics per sensor:
+- Battery level (%)
+- Link quality indicator (LQI)
+- Last seen timestamp
+- Current temperature reading
+
+**SD-MN-004**: The monitoring service shall publish sensor health metrics to MQTT topic `heating/monitor/{zone}/sensor_health` with JSON payload:
+```json
+{
+  "battery": float,
+  "linkquality": int,
+  "last_seen": float,
+  "sensor_name": string,
+  "temperature": float
+}
+```
+
+**SD-MN-005**: The monitoring service shall use the shared `heating_config.yaml` configuration file to identify which sensors to monitor (extracting `temperature_sensor_topic` from zone configurations).
+
+**SD-MN-006**: The monitoring service shall implement the following alert thresholds:
+- Battery low: < 20% → Alert HEAT-MN-001
+- Link quality degraded: LQI < 100 → Alert HEAT-MN-002
+- Sensor not reporting: No update for 30 minutes → Alert HEAT-MN-003
+
+**SD-MN-007**: Battery and LQI threshold alerts shall be published immediately when conditions are met to topic `heating/monitor/{zone}/alert/{type}` where type is `battery_low`, `lqi_low`, or `no_update`.
+
+**SD-MN-008**: Staleness checks (HEAT-MN-003) shall be performed every 60 seconds in the main monitoring loop.
+
+**SD-MN-009**: The monitoring service shall run as a separate systemd service (`automation-heating-monitor.service`) independent of the heating control service to ensure fault isolation.
+
+**SD-MN-010**: The monitoring service failure shall NOT affect heating control operations - both services communicate only via MQTT and have no direct code dependencies.
+
+**SD-MN-011**: The monitoring service implementation shall optimize MQTT message processing by:
+- Using received topic directly instead of reconstructing it from parsed sensor name
+- Passing only necessary parameters to internal methods (avoid unused parameters)
+- Using `_` for intentionally unused loop variables to indicate they are not referenced
+
+### 3.2.7 MQTT Topic Structure
 
 **SD-MQTT-001**: All MQTT topics shall follow the hierarchical structure: `heating/{zone}/{metric}` or `heating/{metric}` for global settings.
 
@@ -716,6 +820,10 @@ output = Kp * error + Ki * integral + Kd * derivative
 | `heating/{zone}/current_temp` | `{"temperature": float}` | Current zone temperature |
 | `heating/{zone}/thermal_metrics` | `{...}` | Thermal performance data |
 | `heating/{zone}/pump_cycles` | `{"cycles_per_hour": float}` | Pump cycling frequency |
+| `heating/monitor/{zone}/sensor_health` | `{"battery": float, "linkquality": int, ...}` | Sensor health metrics (monitoring service) |
+| `heating/monitor/{zone}/alert/battery_low` | `{"alert_id": "HEAT-MN-001", ...}` | Battery low alert (monitoring service) |
+| `heating/monitor/{zone}/alert/lqi_low` | `{"alert_id": "HEAT-MN-002", ...}` | Link quality alert (monitoring service) |
+| `heating/monitor/{zone}/alert/no_update` | `{"alert_id": "HEAT-MN-003", ...}` | Sensor staleness alert (monitoring service) |
 
 **SD-MQTT-003**: Control topics (subscribed by Python script):
 | Topic | Payload | Description |
@@ -997,6 +1105,9 @@ zones:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.6 | 2026-01-07 | Claude | **Climate Preset Mode Integration**: Added COMFORT operating mode (schedule + configurable offset); integrated Home Assistant climate entity preset modes (home, comfort, away, eco, boost, none); added automatic boost mode activation when user adjusts temperature setpoint; added SR-SCH-009, SR-SCH-010, SR-SCH-011 requirements; updated UR-CA-005, UR-CA-007, added UR-CA-008; implemented `_handle_preset_change()` and `_publish_climate_preset()` in heating_control.py; added input_datetime helpers for boost expiry; created automations for setpoint-to-boost conversion |
+| 1.5 | 2026-01-02 | Claude | Code optimization: removed redundant string reconstruction in `_process_zigbee_message()` to use topic directly; removed unused `sensor_topic` parameters from `_publish_sensor_health()`, `_check_battery_threshold()`, and `_check_lqi_threshold()`; renamed unused loop variable to `_` in `_check_stale_sensors()`; added SD-MN-011 documenting implementation optimization practices |
+| 1.4 | 2026-01-02 | Claude | Added independent sensor health monitoring service (heating_monitor.py); added Section 3.2.6 Sensor Health Monitoring Service with design requirements SD-MN-001 through SD-MN-010; updated SD-AR-001 to document dual-service architecture; updated SD-AR-004 for fault isolation requirement; added monitoring MQTT topics to SD-MQTT-002; implemented HEAT-MN-001, HEAT-MN-002, HEAT-MN-003 alert IDs; created monitoring_sensors.yaml, monitoring dashboard view, and automation-heating-monitor.service systemd unit |
 | 1.3 | 2026-01-02 | Claude | Added Section 3.7 Alert Requirements (SR-AL-001, SR-AL-002, SR-AL-003); defined standardized alert ID format `HEAT-{CATEGORY}-{NUMBER}`; updated SD-HA-011 to include alert IDs in notifications; created comprehensive HEATING_ALERT_REFERENCE.md documentation |
 | 1.2 | 2026-01-01 | Claude | Added RISK-013 (Sensor Connection Loss) with critical analysis of stuck reading failure mode; identified gap in current safety requirements; added SR-SF-007 (Sensor Update Watchdog) and SR-SF-008 (Maximum Runtime Safety) to address highest unmitigated risk |
 | 1.1 | 2025-12-27 | Claude | Added comprehensive risk assessment with 12 identified risks, likelihood/severity ratings, mitigations, and safety requirements coverage |
