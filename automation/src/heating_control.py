@@ -682,6 +682,7 @@ class HeatingControl(AutomationPubSub):
 
         # Publish current temperature
         if zone.current_temp is not None:
+            logging.debug(f"Publishing heating/{zone_name}/current_temp: {zone.current_temp}°C")
             self.client.publish(
                 f"heating/{zone_name}/current_temp",
                 str(zone.current_temp),
@@ -693,6 +694,7 @@ class HeatingControl(AutomationPubSub):
         # Get effective setpoint from schedule manager to ensure it reflects current mode/schedule
         effective_setpoint = self.schedule_manager.get_effective_setpoint(zone_name)
         if effective_setpoint is not None:
+            logging.debug(f"Publishing heating/{zone_name}/climate/setpoint: {effective_setpoint}°C")
             self.client.publish(
                 f"heating/{zone_name}/climate/setpoint",
                 str(effective_setpoint),
@@ -703,6 +705,7 @@ class HeatingControl(AutomationPubSub):
         # Publish HVAC mode
         # For Part 1, mode is always "heat" - the input_boolean controls actual heating
         # Mode changes via climate card are handled by HA automations → input_boolean
+        logging.debug(f"Publishing heating/{zone_name}/climate/mode: heat")
         self.client.publish(
             f"heating/{zone_name}/climate/mode",
             "heat",
@@ -712,6 +715,7 @@ class HeatingControl(AutomationPubSub):
 
         # Publish HVAC action (heating/idle based on pump state)
         action = "heating" if zone.pump_state else "idle"
+        logging.debug(f"Publishing heating/{zone_name}/climate/action: {action}")
         self.client.publish(
             f"heating/{zone_name}/climate/action",
             action,
@@ -751,6 +755,7 @@ class HeatingControl(AutomationPubSub):
         preset = mode_to_preset.get(current_mode, "none")
 
         # Publish preset state
+        logging.debug(f"Publishing heating/{zone_name}/climate/preset: {preset} (mode: {current_mode.value})")
         self.client.publish(
             f"heating/{zone_name}/climate/preset",
             preset,
