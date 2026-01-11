@@ -60,14 +60,14 @@ zones:
           setpoint: 19.0
         - start: "21:00"
           end: "08:00"
-          setpoint: 16.0
+          setpoint: 18.0
       weekends:  # Saturday and Sunday
         - start: "09:30"
           end: "23:00"
           setpoint: 19.0
         - start: "23:00"
           end: "09:30"
-          setpoint: 16.0
+          setpoint: 18.0
 
   first_floor:
     # Temperature Sensor
@@ -100,14 +100,14 @@ zones:
           setpoint: 17.5
         - start: "21:00"
           end: "08:00"
-          setpoint: 16.0
+          setpoint: 16.5
       weekends:  # Saturday and Sunday
         - start: "09:30"
           end: "23:00"
           setpoint: 17.5
         - start: "23:00"
           end: "09:30"
-          setpoint: 16.0
+          setpoint: 16.5
 
 ###############################################################################
 # PID Tuning Guidelines
