@@ -197,7 +197,10 @@ class HeatingControl(AutomationPubSub):
                         manual_setpoint=setpoint
                     )
                     logging.info(f"Manual setpoint for {zone_name}: {setpoint}°C (mode set to MANUAL)")
+                    # Publish UI state immediately for responsive feedback
                     self._publish_schedule_state(zone_name)
+                    self._publish_climate_state(zone_name)
+                    self._publish_climate_preset(zone_name)
                 return
 
             # Per-zone operating mode control
@@ -205,7 +208,10 @@ class HeatingControl(AutomationPubSub):
                 zone_name = topic.split('/')[1]
                 if zone_name in self.zones:
                     self._handle_zone_mode_change(zone_name, payload)
+                    # Publish UI state immediately for responsive feedback
                     self._publish_schedule_state(zone_name)
+                    self._publish_climate_state(zone_name)
+                    self._publish_climate_preset(zone_name)
                 return
 
             # Climate preset mode control (new standard method)
@@ -213,7 +219,9 @@ class HeatingControl(AutomationPubSub):
                 zone_name = topic.split('/')[1]
                 if zone_name in self.zones:
                     self._handle_preset_change(zone_name, payload)
+                    # Publish UI state immediately for responsive feedback
                     self._publish_schedule_state(zone_name)
+                    self._publish_climate_state(zone_name)
                     self._publish_climate_preset(zone_name)
                 return
 
@@ -748,11 +756,11 @@ class HeatingControl(AutomationPubSub):
             OperatingMode.AWAY: "away",
             OperatingMode.VACATION: "eco",
             OperatingMode.BOOST: "boost",
-            OperatingMode.MANUAL: "none",
-            OperatingMode.OFF: "none",
+            OperatingMode.MANUAL: "sleep",
+            OperatingMode.OFF: "sleep",
         }
 
-        preset = mode_to_preset.get(current_mode, "none")
+        preset = mode_to_preset.get(current_mode, "sleep")
 
         # Publish preset state
         logging.debug(f"Publishing heating/{zone_name}/climate/preset: {preset} (mode: {current_mode.value})")
