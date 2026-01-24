@@ -181,7 +181,9 @@ class ModeManager:
                     f"{self.zone_name}: Boost mode expired | "
                     f"Reverting to {self.previous_mode.value if self.previous_mode else 'auto'}"
                 )
-                self.current_mode = self.previous_mode or OperatingMode.AUTO
+                # self.current_mode = self.previous_mode or OperatingMode.AUTO
+                # there is a bug here that the mode is not set to the correct previous mode
+                self.current_mode = OperatingMode.AUTO # For now, always revert to AUTO after boost. 
                 self.boost_expires_at = None
                 self.manual_setpoint = None
                 self.persist_state()
